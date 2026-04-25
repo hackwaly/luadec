@@ -1,0 +1,40 @@
+///|
+fn[T : Debug] debug_to_string(x : T) -> String {
+  @debug.render(x.to_repr(), max_depth=1000)
+}
+
+///|
+async fn pipeline(
+  bytes : BytesView,
+  filename~ : String,
+  inspect_filter~ : (String) -> Bool,
+) -> @ssa.Program {
+  let base = filename.strip_suffix(".lua.bytes").unwrap_or(filename)
+  let inspect_dir = "\{base}.inspect"
+  @fs.rmdir(inspect_dir, recursive=true) catch {
+    _ => ()
+  }
+  @fs.mkdir(inspect_dir, recursive=true)
+  let filter = inspect_filter
+  bytes
+  |> @bc/parse.parse
+  |> inspect(
+    @bc/disasm.disassemble,
+    filter~,
+    filename="\{inspect_dir}/100_disasm.txt",
+  )
+  |> @raw_cfg/from_bc.from_bc
+  |> inspect(
+    debug_to_string,
+    filter~,
+    filename="\{inspect_dir}/200_raw_cfg.txt",
+  )
+  |> @canonical_cfg/from_raw_cfg.from_raw_cfg
+  |> inspect(
+    debug_to_string,
+    filter~,
+    filename="\{inspect_dir}/300_canonical_cfg.txt",
+  )
+  |> @ssa/from_canonical_cfg.from_canonical_cfg
+  |> inspect(@ssa/render.render, filter~, filename="\{inspect_dir}/400_ssa.lua")
+}

@@ -1,0 +1,17 @@
+import {
+  "moonbitlang/async/io",
+  "moonbitlang/async/js_async",
+  "moonbitlang/core/env",
+  "moonbitlang/async/stdio" @async/stdio,
+}
+
+warnings = "-unused_package"
+
+options(
+  targets: {
+    "argv_js.mbt": [ "js" ],
+    "argv_native.mbt": [ "native" ],
+    "stdio_native.mbt": [ "native" ],
+    "stdio_node.mbt": [ "js" ],
+  },
+)

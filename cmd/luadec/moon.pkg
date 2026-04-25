@@ -1,0 +1,21 @@
+import {
+  "moonbitlang/core/argparse",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/encoding/utf8" @encoding/utf8,
+  "moonbitlang/async",
+  "hackwaly/luadec/lib/fs",
+  "hackwaly/luadec/lib/console",
+  "hackwaly/luadec/layers/ssa",
+  "hackwaly/luadec/layers/bc/parse" @bc/parse,
+  "hackwaly/luadec/layers/bc/disasm" @bc/disasm,
+  "hackwaly/luadec/layers/raw_cfg/from_bc" @raw_cfg/from_bc,
+  "hackwaly/luadec/layers/canonical_cfg/from_raw_cfg" @canonical_cfg/from_raw_cfg,
+  "hackwaly/luadec/layers/ssa/from_canonical_cfg" @ssa/from_canonical_cfg,
+  "hackwaly/luadec/layers/ssa/render" @ssa/render,
+}
+
+supported_targets = "native+js"
+
+options(
+  "is-main": true,
+)

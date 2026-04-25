@@ -1,0 +1,5 @@
+import {
+  "moonbitlang/core/immut/sorted_map" @immut/sorted_map,
+  "hackwaly/luadec/layers/canonical_cfg",
+  "hackwaly/luadec/layers/ssa",
+}

@@ -1,0 +1,17 @@
+import {
+  "moonbitlang/async/fs" @async/fs,
+  "moonbitlang/async/io",
+  "moonbitlang/async/js_async",
+}
+
+import {
+  "moonbitlang/async",
+} for "test"
+
+warnings = "-unused_package"
+
+supported_targets = "native+js"
+
+options(
+  targets: { "fs_native.mbt": [ "native" ], "fs_node.mbt": [ "js" ] },
+)

@@ -1,0 +1,101 @@
+///|
+pub(all) enum Opcode {
+  MOVE = 0
+  LOADK = 1
+  LOADKX = 2
+  LOADBOOL = 3
+  LOADNIL = 4
+  GETUPVAL = 5
+  GETTABUP = 6
+  GETTABLE = 7
+  SETTABUP = 8
+  SETUPVAL = 9
+  SETTABLE = 10
+  NEWTABLE = 11
+  SELF = 12
+  ADD = 13
+  SUB = 14
+  MUL = 15
+  MOD = 16
+  POW = 17
+  DIV = 18
+  IDIV = 19
+  BAND = 20
+  BOR = 21
+  BXOR = 22
+  SHL = 23
+  SHR = 24
+  UNM = 25
+  BNOT = 26
+  NOT = 27
+  LEN = 28
+  CONCAT = 29
+  JMP = 30
+  EQ = 31
+  LT = 32
+  LE = 33
+  TEST = 34
+  TESTSET = 35
+  CALL = 36
+  TAILCALL = 37
+  RETURN = 38
+  FORLOOP = 39
+  FORPREP = 40
+  TFORCALL = 41
+  TFORLOOP = 42
+  SETLIST = 43
+  CLOSURE = 44
+  VARARG = 45
+  EXTRAARG = 46
+} derive(Debug)
+
+///|
+let opcodes : ReadOnlyArray[Opcode] = [
+  MOVE,
+  LOADK,
+  LOADKX,
+  LOADBOOL,
+  LOADNIL,
+  GETUPVAL,
+  GETTABUP,
+  GETTABLE,
+  SETTABUP,
+  SETUPVAL,
+  SETTABLE,
+  NEWTABLE,
+  SELF,
+  ADD,
+  SUB,
+  MUL,
+  MOD,
+  POW,
+  DIV,
+  IDIV,
+  BAND,
+  BOR,
+  BXOR,
+  SHL,
+  SHR,
+  UNM,
+  BNOT,
+  NOT,
+  LEN,
+  CONCAT,
+  JMP,
+  EQ,
+  LT,
+  LE,
+  TEST,
+  TESTSET,
+  CALL,
+  TAILCALL,
+  RETURN,
+  FORLOOP,
+  FORPREP,
+  TFORCALL,
+  TFORLOOP,
+  SETLIST,
+  CLOSURE,
+  VARARG,
+  EXTRAARG,
+]

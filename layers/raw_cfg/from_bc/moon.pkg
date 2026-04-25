@@ -1,0 +1,7 @@
+import {
+  "moonbitlang/core/immut/sorted_set" @immut/sorted_set,
+  "hackwaly/luadec/layers/bc",
+  "hackwaly/luadec/layers/raw_cfg",
+}
+
+warnings = "-missing_pattern_field"

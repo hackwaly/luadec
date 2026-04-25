@@ -1,0 +1,5 @@
+import {
+  "hackwaly/luadec/layers/bc",
+}
+
+warnings = "-missing_pattern_field"
