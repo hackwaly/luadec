@@ -127,6 +127,45 @@ fn target_doc(
 }
 
 ///|
+fn render_loop_shape_doc(
+  shape : @structured.LoopShape,
+  program : @structured.Program,
+) -> @pretty.Doc {
+  match shape {
+    UnknownLS => @pretty.text("unknown")
+    NumericForLS(value, init, limit, step) =>
+      @pretty.concat_all([
+        @pretty.text("numeric_for "),
+        render_expr_doc(VarE(value), program),
+        @pretty.text(" = "),
+        render_expr_doc(init, program),
+        @pretty.text(", "),
+        render_expr_doc(limit, program),
+        @pretty.text(", "),
+        render_expr_doc(step, program),
+      ])
+    GenericForLS(values, exprs, multi) => {
+      let value_docs = values.map(fn(value) {
+        render_expr_doc(VarE(value), program)
+      })
+      let arg_docs : Array[@pretty.Doc] = exprs.map(fn(expr) {
+        render_expr_doc(expr, program)
+      })
+      match multi {
+        Some(multi) => arg_docs.push(render_multi_doc(multi, program))
+        None => ()
+      }
+      @pretty.concat_all([
+        @pretty.text("generic_for "),
+        @pretty.join(@pretty.text(", "), value_docs),
+        @pretty.text(" in "),
+        @pretty.join(@pretty.text(", "), arg_docs),
+      ])
+    }
+  }
+}
+
+///|
 fn render_return_doc(
   values : Array[@ssa.Expr],
   multi : @ssa.Multi?,
@@ -191,7 +230,7 @@ fn render_region_doc(
       }
       line_docs(docs)
     }
-    Loop(header, init_args, body, exit_region) => {
+    Loop(header, init_args, shape, body, exit_region) => {
       let init_docs = init_args.map(fn(value) {
         render_expr_doc(value, program)
       })
@@ -202,6 +241,8 @@ fn render_region_doc(
             label_doc(header),
             @pretty.text(" init "),
             paren_list(init_docs),
+            @pretty.text(" shape "),
+            render_loop_shape_doc(shape, program),
           ]),
           render_region_doc(body, program),
         ),

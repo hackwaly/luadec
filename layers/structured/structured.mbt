@@ -17,7 +17,7 @@ pub(all) enum Region {
   /// `init_args` are the values supplied on first entry.
   /// `body` is the loop body.
   /// `exit_region` is the continuation taken when the loop exits.
-  Loop(Label, Array[Expr], Region, (Label, Region)?)
+  Loop(Label, Array[Expr], LoopShape, Region, (Label, Region)?)
   /// Unified jump within structured regions.
   ///
   /// This covers plain block-to-block jumps as well as structured transfers
@@ -25,6 +25,16 @@ pub(all) enum Region {
   /// The meaning is determined by `target.label` relative to the surrounding
   /// structured region that interprets the jump.
   Goto(Target)
+} derive(Debug)
+
+///|
+pub(all) enum LoopShape {
+  UnknownLS
+  /// Numeric-for protocol over one loop-control parameter.
+  NumericForLS(Var, Expr, Expr, Expr)
+  /// Generic-for protocol. The expressions and optional multi value are the
+  /// Lua `in` expression list: `exprs..., multi?`.
+  GenericForLS(Array[Var], Array[Expr], Multi?)
 } derive(Debug)
 
 ///|

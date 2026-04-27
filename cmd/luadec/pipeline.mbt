@@ -49,4 +49,10 @@ async fn pipeline(
     filter~,
     filename="\{inspect_dir}/500_structured.lua",
   )
+  |> @structured/recognize_loop_shape.recognize_loop_shape
+  |> inspect(
+    @structured/render.render,
+    filter~,
+    filename="\{inspect_dir}/510_structured_loop_shape.lua",
+  )
 }

@@ -14,6 +14,7 @@ import {
   "hackwaly/luadec/layers/ssa/trivial_copy_propagation" @ssa/trivial_copy_propagation,
   "hackwaly/luadec/layers/ssa/render" @ssa/render,
   "hackwaly/luadec/layers/structured/from_ssa" @structured/from_ssa,
+  "hackwaly/luadec/layers/structured/recognize_loop_shape" @structured/recognize_loop_shape,
   "hackwaly/luadec/layers/structured/render" @structured/render,
 }
 

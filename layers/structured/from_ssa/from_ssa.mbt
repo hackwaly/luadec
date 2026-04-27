@@ -283,7 +283,7 @@ fn build_loop_region(
       Some((exit_label, build_region(ctx, exit_label))),
     )
   }
-  Loop(header, init, build_region(body_ctx, header), exit_region)
+  Loop(header, init, UnknownLS, build_region(body_ctx, header), exit_region)
 }
 
 ///|
