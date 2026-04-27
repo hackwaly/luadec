@@ -37,4 +37,10 @@ async fn pipeline(
   )
   |> @ssa/from_canonical_cfg.from_canonical_cfg
   |> inspect(@ssa/render.render, filter~, filename="\{inspect_dir}/400_ssa.lua")
+  |> @ssa/trivial_copy_propagation.trivial_copy_propagation
+  |> inspect(
+    @ssa/render.render,
+    filter~,
+    filename="\{inspect_dir}/410_ssa_tcp.lua",
+  )
 }

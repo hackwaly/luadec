@@ -11,6 +11,7 @@ import {
   "hackwaly/luadec/layers/raw_cfg/from_bc" @raw_cfg/from_bc,
   "hackwaly/luadec/layers/canonical_cfg/from_raw_cfg" @canonical_cfg/from_raw_cfg,
   "hackwaly/luadec/layers/ssa/from_canonical_cfg" @ssa/from_canonical_cfg,
+  "hackwaly/luadec/layers/ssa/trivial_copy_propagation" @ssa/trivial_copy_propagation,
   "hackwaly/luadec/layers/ssa/render" @ssa/render,
 }
 
