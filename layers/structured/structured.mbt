@@ -9,8 +9,10 @@ pub(all) enum Region {
   Linear(Array[Stmt], Region)
   /// Function return.
   Return(Array[Expr], Multi?)
+  /// Conditional branch without a shared continuation in the current region.
+  Branch(Expr, Region, Region)
   /// Structured conditional with an explicit post-dominator continuation.
-  If(Expr, Region, Region, (Label, Region)?)
+  If(Expr, Region, Region?, (Label, Region))
   /// Structured loop.
   ///
   /// `header` names the loop header and carries the loop parameters.

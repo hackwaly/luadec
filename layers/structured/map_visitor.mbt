@@ -6,12 +6,13 @@ pub(open) trait MapVisitor {
   visit_Region(Self, Region) -> Region = _
   visit_Region_Linear(Self, stmts~ : Array[Stmt], next~ : Region) -> Region = _
   visit_Region_Return(Self, values~ : Array[Expr], multi~ : Multi?) -> Region = _
+  visit_Region_Branch(Self, cond~ : Expr, then_~ : Region, else_~ : Region) -> Region = _
   visit_Region_If(
     Self,
     cond~ : Expr,
     then_~ : Region,
-    else_~ : Region,
-    cont~ : (Label, Region)?,
+    else_~ : Region?,
+    cont~ : (Label, Region),
   ) -> Region = _
   visit_Region_Loop(
     Self,
@@ -76,6 +77,11 @@ impl MapVisitor with visit_Region_Linear(env, stmts~, next~) {
 ///|
 impl MapVisitor with visit_Region_Return(env, values~, multi~) {
   MapVisitorBase::visit_Region_Return(env, values~, multi~)
+}
+
+///|
+impl MapVisitor with visit_Region_Branch(env, cond~, then_~, else_~) {
+  MapVisitorBase::visit_Region_Branch(env, cond~, then_~, else_~)
 }
 
 ///|
@@ -297,6 +303,8 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region(
   match region {
     Linear(stmts, next) => env.0.visit_Region_Linear(stmts~, next~)
     Return(values, multi) => env.0.visit_Region_Return(values~, multi~)
+    Branch(cond, then_, else_) =>
+      env.0.visit_Region_Branch(cond~, then_~, else_~)
     If(cond, then_, else_, cont) =>
       env.0.visit_Region_If(cond~, then_~, else_~, cont~)
     Loop(header, init_args, shape, body, exit_region) =>
@@ -341,6 +349,20 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region_Retu
 }
 
 ///|
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region_Branch(
+  env,
+  cond~,
+  then_~,
+  else_~,
+) {
+  Branch(
+    env.0.visit_Expr(cond),
+    env.0.visit_Region(then_),
+    env.0.visit_Region(else_),
+  )
+}
+
+///|
 pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region_If(
   env,
   cond~,
@@ -351,8 +373,11 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region_If(
   If(
     env.0.visit_Expr(cond),
     env.0.visit_Region(then_),
-    env.0.visit_Region(else_),
-    map_visit_cont(env.0, cont),
+    else_.map(fn(region) { env.0.visit_Region(region) }),
+    {
+      let (label, region) = cont
+      (env.0.visit_Label(label), env.0.visit_Region(region))
+    },
   )
 }
 

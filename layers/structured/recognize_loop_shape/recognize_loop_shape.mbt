@@ -35,6 +35,8 @@ priv struct NumericProtocol {
 priv struct NumericInit {
   remaining_stmts : Array[@ssa.Stmt]
   start : @ssa.Expr
+  limit : @ssa.Expr
+  step : @ssa.Expr
 }
 
 ///|
@@ -45,6 +47,26 @@ priv struct GenericInit {
 }
 
 ///|
+priv struct VarMention {
+  value : @ssa.Var
+  found : Array[Bool]
+}
+
+///|
+priv struct DropLabelParams {
+  old_label : @ssa.Label
+  new_label : @ssa.Label
+  keep_indices : Array[Int]
+}
+
+///|
+impl @structured.IterVisitor for VarMention with visit_Var(self, value) {
+  if value == self.value {
+    self.found[0] = true
+  }
+}
+
+///|
 impl @structured.MapVisitor for RedirectContinue with visit_Region_Goto(
   self,
   target~,
@@ -52,6 +74,28 @@ impl @structured.MapVisitor for RedirectContinue with visit_Region_Goto(
   let Target(label, args) = target
   if label == self.from {
     Goto(Target(self.to, args.map(fn(arg) { self.visit_Expr(arg) })))
+  } else {
+    Goto(self.visit_Target(target))
+  }
+}
+
+///|
+impl @structured.MapVisitor for DropLabelParams with visit_Region_Goto(
+  self,
+  target~,
+) {
+  let Target(label, args) = target
+  if label == self.old_label && args.length() == self.old_label.params.length() {
+    let kept_args : Array[@ssa.Expr] = []
+    for index in self.keep_indices {
+      kept_args.push(args[index])
+    }
+    Goto(
+      Target(
+        self.new_label,
+        kept_args.map(fn(arg) { self.visit_Expr(arg) }),
+      ),
+    )
   } else {
     Goto(self.visit_Target(target))
   }
@@ -77,6 +121,27 @@ impl @structured.MapVisitor for DropLoopControl with visit_Region_Goto(
 }
 
 ///|
+impl @structured.MapVisitor for DropLoopControl with visit_Region_Loop(
+  self,
+  header~,
+  init_args~,
+  shape~,
+  body~,
+  exit_region~,
+) {
+  let header = self.visit_Label(header)
+  let init_args = init_args.map(fn(arg) { self.visit_Expr(arg) })
+  let shape = self.visit_LoopShape(shape)
+  let body = self.visit_Region(body)
+  let exit_region = exit_region.map(fn(item) {
+    let (label, region) = item
+    (self.visit_Label(label), self.visit_Region(region))
+  })
+  let (body, exit_region) = prune_unused_exit_params(body, exit_region)
+  Loop(header, init_args, shape, body, exit_region)
+}
+
+///|
 fn drop_last_exprs(values : Array[@ssa.Expr]) -> Array[@ssa.Expr] {
   guard values.length() > 0 else { return [] }
   let out : Array[@ssa.Expr] = []
@@ -97,9 +162,63 @@ fn drop_last_vars(values : Array[@ssa.Var]) -> Array[@ssa.Var] {
 }
 
 ///|
+fn region_mentions_var(region : Region, value : @ssa.Var) -> Bool {
+  let found = [false]
+  let visitor : VarMention = { value, found }
+  visitor.visit_Region(region)
+  found[0]
+}
+
+///|
+fn prune_unused_exit_params(
+  body : Region,
+  exit_region : (@ssa.Label, Region)?,
+) -> (Region, (@ssa.Label, Region)?) {
+  match exit_region {
+    Some((exit_label, exit_body)) => {
+      let keep_indices : Array[Int] = []
+      let kept_params : Array[@ssa.Var] = []
+      for i in 0..<exit_label.params.length() {
+        let param = exit_label.params[i]
+        if region_mentions_var(exit_body, param) {
+          keep_indices.push(i)
+          kept_params.push(param)
+        }
+      }
+      guard kept_params.length() < exit_label.params.length() else {
+        return (body, exit_region)
+      }
+      let new_label = { ..exit_label, params: kept_params }
+      let dropper : DropLabelParams = { old_label: exit_label, new_label, keep_indices }
+      (
+        dropper.visit_Region(body),
+        Some((new_label, dropper.visit_Region(exit_body))),
+      )
+    }
+    None => (body, None)
+  }
+}
+
+///|
 fn take_stmts(stmts : Array[@ssa.Stmt], count : Int) -> Array[@ssa.Stmt] {
   let out : Array[@ssa.Stmt] = []
   for i in 0..<count {
+    out.push(stmts[i])
+  }
+  out
+}
+
+///|
+fn remove_stmts_range(
+  stmts : Array[@ssa.Stmt],
+  start : Int,
+  end : Int,
+) -> Array[@ssa.Stmt] {
+  let out : Array[@ssa.Stmt] = []
+  for i in 0..<start {
+    out.push(stmts[i])
+  }
+  for i in end..<stmts.length() {
     out.push(stmts[i])
   }
   out
@@ -111,115 +230,6 @@ fn linear_or_next(stmts : Array[@ssa.Stmt], next : Region) -> Region {
     next
   } else {
     Linear(stmts, next)
-  }
-}
-
-///|
-fn generic_init_targets(
-  iter : @ssa.Var,
-  state : @ssa.Var,
-  init_ctrl : @ssa.Expr,
-) -> Array[@ssa.Var]? {
-  match init_ctrl {
-    VarE(ctrl) => Some([iter, state, ctrl])
-    _ => None
-  }
-}
-
-///|
-fn vars_match_suffix(
-  values : Array[@ssa.Var],
-  targets : Array[@ssa.Var],
-  start : Int,
-) -> Bool {
-  guard values.length() == targets.length() - start else { return false }
-  for i in 0..<values.length() {
-    if values[i] != targets[start + i] {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn try_match_generic_init_from(
-  stmts : Array[@ssa.Stmt],
-  start : Int,
-  targets : Array[@ssa.Var],
-) -> GenericInit? {
-  let exprs : Array[@ssa.Expr] = []
-  let mut target_index = 0
-  for i in start..<stmts.length() {
-    guard target_index < targets.length() else { return None }
-    match stmts[i] {
-      BindS(value, expr) =>
-        if value == targets[target_index] {
-          exprs.push(expr)
-          target_index = target_index + 1
-        } else {
-          return None
-        }
-      BindMultiS(values, multi) =>
-        if i == stmts.length() - 1 &&
-          vars_match_suffix(values, targets, target_index) {
-          return Some({
-            remaining_stmts: take_stmts(stmts, start),
-            exprs,
-            multi: Some(multi),
-          })
-        } else {
-          return None
-        }
-      _ => return None
-    }
-  }
-  if target_index == targets.length() {
-    Some({ remaining_stmts: take_stmts(stmts, start), exprs, multi: None })
-  } else {
-    None
-  }
-}
-
-///|
-fn match_generic_init(
-  stmts : Array[@ssa.Stmt],
-  iter : @ssa.Var,
-  state : @ssa.Var,
-  init_ctrl : @ssa.Expr,
-) -> GenericInit? {
-  let targets = match generic_init_targets(iter, state, init_ctrl) {
-    Some(targets) => targets
-    None => return None
-  }
-  let mut found : GenericInit? = None
-  for start in 0..<stmts.length() {
-    match try_match_generic_init_from(stmts, start, targets) {
-      Some(init) => found = Some(init)
-      None => ()
-    }
-  }
-  found
-}
-
-///|
-fn match_numeric_init(
-  stmts : Array[@ssa.Stmt],
-  init_ctrl : @ssa.Expr,
-  step : @ssa.Var,
-) -> NumericInit? {
-  guard stmts.length() > 0 else { return None }
-  let ctrl = match init_ctrl {
-    VarE(ctrl) => ctrl
-    _ => return None
-  }
-  match stmts[stmts.length() - 1] {
-    BindS(value, BinaryE(Sub, start, VarE(init_step))) =>
-      if value == ctrl && init_step == step {
-        Some({ remaining_stmts: take_stmts(stmts, stmts.length() - 1), start })
-      } else {
-        None
-      }
-    _ => None
   }
 }
 
@@ -260,82 +270,6 @@ fn exits_loop(region : Region, exit_region : (@ssa.Label, Region)?) -> Bool {
 }
 
 ///|
-fn recognize_numeric_for(
-  header : @ssa.Label,
-  init_args : Array[@ssa.Expr],
-  body : Region,
-  exit_region : (@ssa.Label, Region)?,
-) -> NumericProtocol? {
-  guard init_args.length() > 0 else { return None }
-  guard header.params.length() > 0 else { return None }
-  match body {
-    Linear(
-      [BindS(ctrl, BinaryE(Add, VarE(prev_ctrl), VarE(step)))],
-      If(
-        NumericForCheckE(VarE(check_ctrl), limit, VarE(check_step)),
-        then_region,
-        else_region,
-        Some((cont_label, cont_region))
-      )
-    ) =>
-      if prev_ctrl == header.params[header.params.length() - 1] &&
-        check_ctrl == ctrl &&
-        check_step == step &&
-        exits_loop(else_region, exit_region) &&
-        is_identity_jump(cont_region, cont_label, header) {
-        let redirect : RedirectContinue = { from: cont_label, to: header }
-        Some({
-          value: ctrl,
-          limit,
-          step,
-          body: redirect.visit_Region(then_region),
-        })
-      } else {
-        None
-      }
-    _ => None
-  }
-}
-
-///|
-fn recognize_generic_for(
-  header : @ssa.Label,
-  init_args : Array[@ssa.Expr],
-  body : Region,
-  exit_region : (@ssa.Label, Region)?,
-) -> GenericProtocol? {
-  guard header.params.length() > 0 else { return None }
-  guard init_args.length() >= header.params.length() else { return None }
-  match body {
-    Linear(
-      [
-        BindMultiS(
-          vars,
-          CallM(NormalC(VarE(iter), [VarE(state), VarE(ctrl)], None))
-        ),
-      ],
-      If(
-        BinaryE(Neq, VarE(first), ConstE(Nil)),
-        then_region,
-        else_region,
-        Some((cont_label, cont_region))
-      )
-    ) =>
-      if vars.length() > 0 &&
-        vars[0] == first &&
-        ctrl == header.params[header.params.length() - 1] &&
-        exits_loop(else_region, exit_region) &&
-        is_identity_jump(cont_region, cont_label, header) {
-        let redirect : RedirectContinue = { from: cont_label, to: header }
-        Some({ vars, iter, state, body: redirect.visit_Region(then_region) })
-      } else {
-        None
-      }
-    _ => None
-  }
-}
-
-///|
 fn recognize_shape(
   header : @ssa.Label,
   init_args : Array[@ssa.Expr],
@@ -345,74 +279,6 @@ fn recognize_shape(
   ignore(header)
   ignore(init_args)
   (UnknownLS, body)
-}
-
-///|
-fn recognize_numeric_loop(
-  stmts : Array[@ssa.Stmt],
-  header : @ssa.Label,
-  init_args : Array[@ssa.Expr],
-  body : Region,
-  exit_region : (@ssa.Label, Region)?,
-) -> Region? {
-  let protocol = match
-    recognize_numeric_for(header, init_args, body, exit_region) {
-    Some(protocol) => protocol
-    None => return None
-  }
-  guard init_args.length() > 0 else { return None }
-  let init_ctrl = init_args[init_args.length() - 1]
-  let init = match match_numeric_init(stmts, init_ctrl, protocol.step) {
-    Some(init) => init
-    None => return None
-  }
-  let new_header = { ..header, params: drop_last_vars(header.params) }
-  let dropper : DropLoopControl = { old_header: header, new_header }
-  let loop_region = @structured.Loop(
-    new_header,
-    drop_last_exprs(init_args),
-    @structured.NumericForLS(
-      protocol.value,
-      init.start,
-      protocol.limit,
-      VarE(protocol.step),
-    ),
-    dropper.visit_Region(protocol.body),
-    exit_region,
-  )
-  Some(linear_or_next(init.remaining_stmts, loop_region))
-}
-
-///|
-fn recognize_generic_loop(
-  stmts : Array[@ssa.Stmt],
-  header : @ssa.Label,
-  init_args : Array[@ssa.Expr],
-  body : Region,
-  exit_region : (@ssa.Label, Region)?,
-) -> Region? {
-  let protocol = match
-    recognize_generic_for(header, init_args, body, exit_region) {
-    Some(protocol) => protocol
-    None => return None
-  }
-  guard init_args.length() > 0 else { return None }
-  let init_ctrl = init_args[init_args.length() - 1]
-  let init = match
-    match_generic_init(stmts, protocol.iter, protocol.state, init_ctrl) {
-    Some(init) => init
-    None => return None
-  }
-  let new_header = { ..header, params: drop_last_vars(header.params) }
-  let dropper : DropLoopControl = { old_header: header, new_header }
-  let loop_region = @structured.Loop(
-    new_header,
-    drop_last_exprs(init_args),
-    @structured.GenericForLS(protocol.vars, init.exprs, init.multi),
-    dropper.visit_Region(protocol.body),
-    exit_region,
-  )
-  Some(linear_or_next(init.remaining_stmts, loop_region))
 }
 
 ///|

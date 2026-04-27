@@ -6,12 +6,13 @@ pub(open) trait IterVisitor {
   visit_Region(Self, Region) -> Unit = _
   visit_Region_Linear(Self, stmts~ : Array[Stmt], next~ : Region) -> Unit = _
   visit_Region_Return(Self, values~ : Array[Expr], multi~ : Multi?) -> Unit = _
+  visit_Region_Branch(Self, cond~ : Expr, then_~ : Region, else_~ : Region) -> Unit = _
   visit_Region_If(
     Self,
     cond~ : Expr,
     then_~ : Region,
-    else_~ : Region,
-    cont~ : (Label, Region)?,
+    else_~ : Region?,
+    cont~ : (Label, Region),
   ) -> Unit = _
   visit_Region_Loop(
     Self,
@@ -76,6 +77,11 @@ impl IterVisitor with visit_Region_Linear(env, stmts~, next~) {
 ///|
 impl IterVisitor with visit_Region_Return(env, values~, multi~) {
   IterVisitorBase::visit_Region_Return(env, values~, multi~)
+}
+
+///|
+impl IterVisitor with visit_Region_Branch(env, cond~, then_~, else_~) {
+  IterVisitorBase::visit_Region_Branch(env, cond~, then_~, else_~)
 }
 
 ///|
@@ -299,6 +305,8 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region(
   match region {
     Linear(stmts, next) => env.0.visit_Region_Linear(stmts~, next~)
     Return(values, multi) => env.0.visit_Region_Return(values~, multi~)
+    Branch(cond, then_, else_) =>
+      env.0.visit_Region_Branch(cond~, then_~, else_~)
     If(cond, then_, else_, cont) =>
       env.0.visit_Region_If(cond~, then_~, else_~, cont~)
     Loop(header, init_args, shape, body, exit_region) =>
@@ -346,6 +354,18 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region_R
 }
 
 ///|
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region_Branch(
+  env,
+  cond~,
+  then_~,
+  else_~,
+) {
+  env.0.visit_Expr(cond)
+  env.0.visit_Region(then_)
+  env.0.visit_Region(else_)
+}
+
+///|
 pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region_If(
   env,
   cond~,
@@ -355,8 +375,13 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region_I
 ) {
   env.0.visit_Expr(cond)
   env.0.visit_Region(then_)
-  env.0.visit_Region(else_)
-  iter_visit_cont(env.0, cont)
+  match else_ {
+    Some(region) => env.0.visit_Region(region)
+    None => ()
+  }
+  let (label, region) = cont
+  env.0.visit_Label(label)
+  env.0.visit_Region(region)
 }
 
 ///|
