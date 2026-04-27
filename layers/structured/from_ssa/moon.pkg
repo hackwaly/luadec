@@ -1,0 +1,9 @@
+import {
+  "moonbitlang/core/immut/sorted_map" @immut/sorted_map,
+  "moonbitlang/core/immut/sorted_set" @immut/sorted_set,
+  "hackwaly/luadec/layers/ssa",
+  "hackwaly/luadec/layers/ssa/cfg_info" @ssa/cfg_info,
+  "hackwaly/luadec/layers/structured",
+}
+
+warnings = "-missing_pattern_field-unused_package"

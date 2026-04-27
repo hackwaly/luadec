@@ -8,7 +8,7 @@ async fn pipeline(
   bytes : BytesView,
   filename~ : String,
   inspect_filter~ : (String) -> Bool,
-) -> @ssa.Program {
+) -> @structured.Program {
   let base = filename.strip_suffix(".lua.bytes").unwrap_or(filename)
   let inspect_dir = "\{base}.inspect"
   @fs.rmdir(inspect_dir, recursive=true) catch {
@@ -42,5 +42,11 @@ async fn pipeline(
     @ssa/render.render,
     filter~,
     filename="\{inspect_dir}/410_ssa_tcp.lua",
+  )
+  |> @structured/from_ssa.from_ssa
+  |> inspect(
+    @structured/render.render,
+    filter~,
+    filename="\{inspect_dir}/500_structured.lua",
   )
 }

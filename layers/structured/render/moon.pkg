@@ -1,0 +1,8 @@
+import {
+  "hackwaly/luadec/lib/pretty",
+  "hackwaly/luadec/layers/ssa" @ssa,
+  "hackwaly/luadec/layers/ssa/render" @ssa_render,
+  "hackwaly/luadec/layers/structured" @structured,
+}
+
+warnings = "-missing_pattern_field"
