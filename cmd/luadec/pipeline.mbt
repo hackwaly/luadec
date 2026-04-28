@@ -85,4 +85,10 @@ async fn pipeline(
     filter~,
     filename="\{inspect_dir}/510_structured_loop_shape.lua",
   )
+  |> @structured/normalize_if.normalize_if
+  |> inspect(
+    @structured/render.render,
+    filter~,
+    filename="\{inspect_dir}/520_structured_normalized.lua",
+  )
 }

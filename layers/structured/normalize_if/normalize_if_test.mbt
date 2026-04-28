@@ -1,0 +1,157 @@
+///|
+fn nth_id(id_gen : @ssa.IdGen, value : Int) -> @ssa.Id {
+  let mut out = id_gen.next()
+  for _ in 0..<value {
+    out = id_gen.next()
+  }
+  out
+}
+
+///|
+fn value(value : Int) -> @ssa.Var {
+  { id: nth_id(@ssa.IdGen::new(), value) }
+}
+
+///|
+fn label(value : Int, params? : Array[@ssa.Var] = []) -> @ssa.Label {
+  { id: nth_id(@ssa.IdGen::new(), value), params }
+}
+
+///|
+fn int(value : Int) -> @ssa.Expr {
+  @ssa.ConstE(Integer(value.to_int64()))
+}
+
+///|
+fn bool(value : Bool) -> @ssa.Expr {
+  @ssa.ConstE(Boolean(value))
+}
+
+///|
+fn program_with(body : @structured.Region) -> @structured.Program {
+  {
+    _id_gen: @ssa.IdGen::new(),
+    funcs: [{ index: 0, params: [], cells: [], vararg: false, body }],
+    main: { index: 0 },
+  }
+}
+
+///|
+fn normalize_render(body : @structured.Region) -> String {
+  @structured/render.render(normalize_if(program_with(body)))
+}
+
+///|
+test "normalize_if folds direct return branch into guard" {
+  let cond = value(0)
+  let body = @structured.Branch(
+    VarE(cond),
+    Return([bool(false)], None),
+    Linear([BindS(value(1), int(1))], Return([bool(true)], None)),
+  )
+
+  assert_eq(
+    normalize_render(body),
+    (
+      #|if v0 {
+      #|  return false
+      #|}
+      #|local v1 = 1
+      #|return true
+    ),
+  )
+}
+
+///|
+test "normalize_if prefers positive equality in return chains" {
+  let side = value(0)
+  let body = @structured.If(
+    BinaryE(Neq, VarE(side), int(1)),
+    Return([int(2)], None),
+    None,
+    (label(10), Return([int(1)], None)),
+  )
+
+  assert_eq(
+    normalize_render(body),
+    (
+      #|if v0 == 1 {
+      #|  return 1
+      #|}
+      #|return 2
+    ),
+  )
+}
+
+///|
+test "normalize_if folds loop exit branch after loop shape recognition" {
+  let header = label(10)
+  let exit = label(11)
+  let next = label(12)
+  let cond = value(0)
+  let body = @structured.Loop(
+    header,
+    [],
+    UnknownLS,
+    @structured.If(
+      VarE(cond),
+      Goto(Target(exit, [])),
+      Some(Linear([BindS(value(1), int(1))], Goto(Target(header, [])))),
+      (next, Goto(Target(header, []))),
+    ),
+    Some((exit, Return([], None))),
+  )
+
+  assert_eq(
+    normalize_render(body),
+    (
+      #|while true {
+      #|  if v0 {
+      #|    break
+      #|  }
+      #|  local v1 = 1
+      #|}
+    ),
+  )
+}
+
+///|
+test "normalize_if keeps loop continue in join tail" {
+  let state = value(1)
+  let next_state = value(2)
+  let cond = value(3)
+  let header = label(20, params=[state])
+  let exit = label(21)
+  let join = label(22, params=[next_state])
+  let body = @structured.Loop(
+    header,
+    [int(0)],
+    UnknownLS,
+    @structured.If(
+      VarE(cond),
+      Goto(Target(exit, [])),
+      Some(
+        Linear(
+          [BindS(next_state, BinaryE(Add, VarE(state), int(1)))],
+          Goto(Target(join, [VarE(next_state)])),
+        ),
+      ),
+      (join, Goto(Target(header, [VarE(next_state)]))),
+    ),
+    Some((exit, Return([], None))),
+  )
+
+  assert_eq(
+    normalize_render(body),
+    (
+      #|local v1 = 0
+      #|while true {
+      #|  if v3 {
+      #|    break
+      #|  }
+      #|  local v2 = v1 + 1
+      #|  v1 = v2
+      #|}
+    ),
+  )
+}

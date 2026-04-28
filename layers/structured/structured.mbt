@@ -19,6 +19,11 @@ pub(all) enum Region {
   /// `init_args` are the values supplied on first entry.
   /// `body` is the loop body.
   /// `exit_region` is the continuation taken when the loop exits.
+  ///
+  /// Loop back-edges are rendered as Lua loop-tail parameter updates. Lua has no
+  /// `continue` statement, so passes must keep loop-header jumps in the loop
+  /// body tail/join position; moving them into an arbitrary branch can only be
+  /// rendered as a plain `goto`.
   Loop(Label, Array[Expr], LoopShape, Region, (Label, Region)?)
   /// Unified jump within structured regions.
   ///
