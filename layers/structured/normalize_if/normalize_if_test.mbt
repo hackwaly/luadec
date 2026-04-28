@@ -84,6 +84,49 @@ test "normalize_if prefers positive equality in return chains" {
 }
 
 ///|
+test "normalize_if prunes unused continuation params" {
+  let cond = value(0)
+  let dead_outer = value(1)
+  let dead_inner = value(2)
+  let live = value(3)
+  let then_effect = value(4)
+  let else_effect = value(5)
+  let outer_join = label(10, params=[dead_outer])
+  let inner_join = label(11, params=[dead_inner])
+  let body = @structured.If(
+    VarE(cond),
+    @structured.If(
+      VarE(cond),
+      Linear([BindS(then_effect, int(10))], Goto(Target(inner_join, [int(1)]))),
+      Some(
+        Linear(
+          [BindS(else_effect, int(20))],
+          Goto(Target(inner_join, [int(2)])),
+        ),
+      ),
+      (inner_join, Goto(Target(outer_join, [VarE(dead_inner)]))),
+    ),
+    Some(Goto(Target(outer_join, [int(3)]))),
+    (outer_join, Linear([BindS(live, int(4))], Return([VarE(live)], None))),
+  )
+
+  assert_eq(
+    normalize_render(body),
+    (
+      #|if v0 {
+      #|  if v0 {
+      #|    local v4 = 10
+      #|  } else {
+      #|    local v5 = 20
+      #|  }
+      #|}
+      #|local v3 = 4
+      #|return v3
+    ),
+  )
+}
+
+///|
 test "normalize_if folds loop exit branch after loop shape recognition" {
   let header = label(10)
   let exit = label(11)
@@ -120,6 +163,7 @@ test "normalize_if keeps loop continue in join tail" {
   let state = value(1)
   let next_state = value(2)
   let cond = value(3)
+  let found = value(4)
   let header = label(20, params=[state])
   let exit = label(21)
   let join = label(22, params=[next_state])
@@ -129,7 +173,7 @@ test "normalize_if keeps loop continue in join tail" {
     UnknownLS,
     @structured.If(
       VarE(cond),
-      Goto(Target(exit, [])),
+      Linear([BindS(found, bool(true))], Goto(Target(exit, []))),
       Some(
         Linear(
           [BindS(next_state, BinaryE(Add, VarE(state), int(1)))],
@@ -147,6 +191,7 @@ test "normalize_if keeps loop continue in join tail" {
       #|local v1 = 0
       #|while true {
       #|  if v3 {
+      #|    local v4 = true
       #|    break
       #|  }
       #|  local v2 = v1 + 1
