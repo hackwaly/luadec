@@ -210,6 +210,30 @@ fn render_expr_ctx_with(
 }
 
 ///|
+fn needs_logical_readability_parens(expr : @ssa.Expr, min_prec : Int) -> Bool {
+  match expr {
+    UnaryE(Not, _) => true
+    AndE(_, _) | OrE(_, _) => expr_prec(expr) != min_prec
+    _ => false
+  }
+}
+
+///|
+fn render_logical_operand_doc_with(
+  expr : @ssa.Expr,
+  min_prec : Int,
+  render_closure : (@ssa.FuncId) -> @pretty.Doc,
+) -> @pretty.Doc {
+  let doc = render_expr_ctx_with(expr, min_prec, render_closure)
+  if expr_prec(expr) >= min_prec &&
+    needs_logical_readability_parens(expr, min_prec) {
+    @pretty.parens(doc)
+  } else {
+    doc
+  }
+}
+
+///|
 fn render_constant(constant : @ssa.Constant) -> String {
   match constant {
     Nil => "nil"
@@ -438,20 +462,20 @@ pub fn render_expr_doc_with(
     AndE(lhs, rhs) => {
       let lhs_min = if logical_op_prec(rhs) == 2 { 3 } else { 2 }
       @pretty.concat_all([
-        render_expr_ctx_with(lhs, lhs_min, render_closure),
+        render_logical_operand_doc_with(lhs, lhs_min, render_closure),
         @pretty.space(),
         @pretty.text("and"),
         @pretty.space(),
-        render_expr_ctx_with(rhs, 2, render_closure),
+        render_logical_operand_doc_with(rhs, 2, render_closure),
       ])
     }
     OrE(lhs, rhs) =>
       @pretty.concat_all([
-        render_expr_ctx_with(lhs, 1, render_closure),
+        render_logical_operand_doc_with(lhs, 1, render_closure),
         @pretty.space(),
         @pretty.text("or"),
         @pretty.space(),
-        render_expr_ctx_with(rhs, 1, render_closure),
+        render_logical_operand_doc_with(rhs, 1, render_closure),
       ])
     CallE(call) => render_call_doc_with(call, render_closure)
     ClosureE(id, _capture_vars) => render_closure(id)

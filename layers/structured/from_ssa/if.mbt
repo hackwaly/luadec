@@ -165,10 +165,121 @@ fn target_label(target : @ssa.Target) -> @ssa.Label {
 }
 
 ///|
+fn invert_binary_op(op : @ssa.BinaryOp) -> @ssa.BinaryOp? {
+  match op {
+    Eq => Some(Neq)
+    Neq => Some(Eq)
+    Lt => Some(Geq)
+    Gt => Some(Leq)
+    Leq => Some(Gt)
+    Geq => Some(Lt)
+    _ => None
+  }
+}
+
+///|
+fn flip_binary_op(op : @ssa.BinaryOp) -> @ssa.BinaryOp? {
+  match op {
+    Eq => Some(Eq)
+    Neq => Some(Neq)
+    Lt => Some(Gt)
+    Gt => Some(Lt)
+    Leq => Some(Geq)
+    Geq => Some(Leq)
+    _ => None
+  }
+}
+
+///|
+fn should_flip_binary_operands(lhs : @ssa.Expr, rhs : @ssa.Expr) -> Bool {
+  match (lhs, rhs) {
+    (ConstE(_), ConstE(_)) => false
+    (ConstE(_), _) => true
+    _ => false
+  }
+}
+
+///|
+fn normalize_binary_cond(
+  op : @ssa.BinaryOp,
+  lhs : @ssa.Expr,
+  rhs : @ssa.Expr,
+) -> @ssa.Expr {
+  if should_flip_binary_operands(lhs, rhs) {
+    match flip_binary_op(op) {
+      Some(op) => return BinaryE(op, rhs, lhs)
+      None => ()
+    }
+  }
+  BinaryE(op, lhs, rhs)
+}
+
+///|
+fn cond_cost(cond : @ssa.Expr) -> Int {
+  match cond {
+    UnaryE(Not, inner) => 4 + cond_cost(inner)
+    BinaryE(op, lhs, rhs) => {
+      let mut cost = cond_cost(lhs) + cond_cost(rhs) + binary_cond_op_cost(op)
+      if should_flip_binary_operands(lhs, rhs) && flip_binary_op(op) is Some(_) {
+        cost = cost + 2
+      }
+      cost
+    }
+    AndE(lhs, rhs) | OrE(lhs, rhs) => 1 + cond_cost(lhs) + cond_cost(rhs)
+    _ => 0
+  }
+}
+
+///|
+fn binary_cond_op_cost(op : @ssa.BinaryOp) -> Int {
+  match op {
+    Neq => 1
+    _ => 0
+  }
+}
+
+///|
+fn choose_lower_cost_cond(lhs : @ssa.Expr, rhs : @ssa.Expr) -> @ssa.Expr {
+  if cond_cost(rhs) <= cond_cost(lhs) {
+    rhs
+  } else {
+    lhs
+  }
+}
+
+///|
+fn normalize_cond(cond : @ssa.Expr) -> @ssa.Expr {
+  match cond {
+    UnaryE(Not, inner) => invert_cond(inner)
+    BinaryE(op, lhs, rhs) =>
+      normalize_binary_cond(op, normalize_cond(lhs), normalize_cond(rhs))
+    AndE(lhs, rhs) => AndE(normalize_cond(lhs), normalize_cond(rhs))
+    OrE(lhs, rhs) => OrE(normalize_cond(lhs), normalize_cond(rhs))
+    _ => cond
+  }
+}
+
+///|
 fn invert_cond(cond : @ssa.Expr) -> @ssa.Expr {
   match cond {
-    UnaryE(Not, inner) => inner
-    _ => UnaryE(Not, cond)
+    UnaryE(Not, inner) => normalize_cond(inner)
+    BinaryE(op, lhs, rhs) =>
+      match invert_binary_op(op) {
+        Some(op) =>
+          normalize_binary_cond(op, normalize_cond(lhs), normalize_cond(rhs))
+        None => UnaryE(Not, normalize_cond(cond))
+      }
+    AndE(lhs, rhs) =>
+      choose_lower_cost_cond(
+        UnaryE(Not, AndE(normalize_cond(lhs), normalize_cond(rhs))),
+        OrE(invert_cond(lhs), invert_cond(rhs)),
+      )
+    OrE(lhs, rhs) =>
+      choose_lower_cost_cond(
+        UnaryE(Not, OrE(normalize_cond(lhs), normalize_cond(rhs))),
+        AndE(invert_cond(lhs), invert_cond(rhs)),
+      )
+    _ => UnaryE(Not, normalize_cond(cond))
   }
 }
 
@@ -182,16 +293,25 @@ fn is_empty_goto_to(region : Region, label : @ssa.Label) -> Bool {
 }
 
 ///|
+fn is_empty_transfer_to(region : Region, cont : (@ssa.Label, Region)) -> Bool {
+  let (cont_label, cont_region) = cont
+  if is_empty_goto_to(region, cont_label) {
+    true
+  } else {
+    is_bare_empty_return(region) && is_bare_empty_return(cont_region)
+  }
+}
+
+///|
 fn build_if_region(
   cond : @ssa.Expr,
   then_region : Region,
   else_region : Region,
   cont : (@ssa.Label, Region),
 ) -> Region {
-  let (cont_label, _) = cont
-  if is_empty_goto_to(else_region, cont_label) {
+  if is_empty_transfer_to(else_region, cont) {
     If(cond, then_region, None, cont)
-  } else if is_empty_goto_to(then_region, cont_label) {
+  } else if is_empty_transfer_to(then_region, cont) {
     If(invert_cond(cond), else_region, None, cont)
   } else {
     If(cond, then_region, Some(else_region), cont)
@@ -220,27 +340,117 @@ fn extract_bare_return(
   else_region : Region,
 ) -> Region? {
   let cont_label = fresh_label(ctx.id_gen, [])
-  let then_region = match strip_bare_return(then_region, cont_label) {
-    Some(region) => region
-    None => return None
+  let then_stripped = strip_bare_return(then_region, cont_label)
+  let else_stripped = strip_bare_return(else_region, cont_label)
+  match (then_stripped, else_stripped) {
+    (Some(then_region), Some(else_region)) =>
+      Some(
+        build_if_region(
+          cond,
+          then_region,
+          else_region,
+          (cont_label, Return([], None)),
+        ),
+      )
+    (Some(_), None) =>
+      Some(
+        If(invert_cond(cond), else_region, None, (cont_label, Return([], None))),
+      )
+    (None, Some(_)) =>
+      Some(If(cond, then_region, None, (cont_label, Return([], None))))
+    (None, None) => None
   }
-  let else_region = match strip_bare_return(else_region, cont_label) {
-    Some(region) => region
-    None => return None
-  }
-  Some(
-    build_if_region(
-      cond,
-      then_region,
-      else_region,
-      (cont_label, Return([], None)),
-    ),
-  )
 }
 
 ///|
 fn is_loop_continue_target(ctx : LoweringContext, label : @ssa.Label) -> Bool {
   ctx.conts.contains(label) && ctx.loop_forest.loops.get(label) is Some(_)
+}
+
+///|
+fn is_loop_exit_target(
+  ctx : LoweringContext,
+  from_label : @ssa.Label,
+  target_label : @ssa.Label,
+) -> Bool {
+  for _, loop_info in ctx.loop_forest.loops {
+    if loop_info.members.contains(from_label) &&
+      get_structured_loop_exit(ctx, loop_info) == target_label {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn target_equal(lhs : @ssa.Target, rhs : @ssa.Target) -> Bool {
+  let Target(lhs_label, lhs_args) = lhs
+  let Target(rhs_label, rhs_args) = rhs
+  guard lhs_label == rhs_label && lhs_args.length() == rhs_args.length() else {
+    return false
+  }
+  for i in 0..<lhs_args.length() {
+    if !expr_equal(lhs_args[i], rhs_args[i]) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn identity_cont_target(
+  ctx : LoweringContext,
+  label : @ssa.Label,
+) -> @ssa.Target {
+  let target = target_with_label_args(label)
+  match ctx.cont_redirects.get(label) {
+    Some(template) => redirect_target(label, target.1, template)
+    None => target
+  }
+}
+
+///|
+fn is_empty_goto_to_target(region : Region, target : @ssa.Target) -> Bool {
+  match region {
+    Linear([], next) => is_empty_goto_to_target(next, target)
+    Goto(goto_target) => target_equal(goto_target, target)
+    _ => false
+  }
+}
+
+///|
+fn is_identity_goto_to_cont(
+  ctx : LoweringContext,
+  region : Region,
+  label : @ssa.Label,
+) -> Bool {
+  is_empty_goto_to_target(region, identity_cont_target(ctx, label))
+}
+
+///|
+fn is_empty_transfer_to_enclosing_cont(
+  ctx : LoweringContext,
+  if_label : @ssa.Label,
+  region : Region,
+) -> Bool {
+  match region {
+    Linear([], next) => is_empty_transfer_to_enclosing_cont(ctx, if_label, next)
+    Goto(Target(label, _) as target) =>
+      ctx.conts.contains(label) &&
+      !is_loop_continue_target(ctx, label) &&
+      !is_loop_exit_target(ctx, if_label, label) &&
+      target_equal(target, identity_cont_target(ctx, label))
+    _ => false
+  }
+}
+
+///|
+fn is_bare_empty_return(region : Region) -> Bool {
+  match region {
+    Return([], None) => true
+    Linear([], next) => is_bare_empty_return(next)
+    _ => false
+  }
 }
 
 ///|
@@ -268,8 +478,98 @@ fn is_abrupt_exit(ctx : LoweringContext, region : Region) -> Bool {
 }
 
 ///|
+fn is_direct_exit_region(
+  ctx : LoweringContext,
+  if_label : @ssa.Label,
+  region : Region,
+) -> Bool {
+  match region {
+    Linear([], next) => is_direct_exit_region(ctx, if_label, next)
+    Return(_, _) => true
+    Goto(Target(label, _)) =>
+      !is_loop_continue_target(ctx, label) &&
+      (!ctx.conts.contains(label) || is_loop_exit_target(ctx, if_label, label))
+    _ => false
+  }
+}
+
+///|
+fn build_costed_branch(
+  cond : @ssa.Expr,
+  then_region : Region,
+  else_region : Region,
+) -> Region {
+  let inverted = invert_cond(cond)
+  if cond_cost(inverted) < cond_cost(cond) {
+    Branch(inverted, else_region, then_region)
+  } else {
+    Branch(cond, then_region, else_region)
+  }
+}
+
+///|
+fn build_direct_exit_guard(
+  ctx : LoweringContext,
+  if_label : @ssa.Label,
+  cond : @ssa.Expr,
+  then_region : Region,
+  else_region : Region,
+) -> Region? {
+  let then_direct = is_direct_exit_region(ctx, if_label, then_region)
+  let else_direct = is_direct_exit_region(ctx, if_label, else_region)
+  match (then_direct, else_direct) {
+    (true, true) => {
+      let inverted = invert_cond(cond)
+      let cont_label = fresh_label(ctx.id_gen, [])
+      if cond_cost(inverted) < cond_cost(cond) {
+        Some(If(inverted, else_region, None, (cont_label, then_region)))
+      } else {
+        Some(If(cond, then_region, None, (cont_label, else_region)))
+      }
+    }
+    (true, false) => {
+      let cont_label = fresh_label(ctx.id_gen, [])
+      Some(If(cond, then_region, None, (cont_label, else_region)))
+    }
+    (false, true) => {
+      let cont_label = fresh_label(ctx.id_gen, [])
+      Some(If(invert_cond(cond), else_region, None, (cont_label, then_region)))
+    }
+    (false, false) => None
+  }
+}
+
+///|
+fn should_preserve_abrupt_branch(
+  ctx : LoweringContext,
+  if_label : @ssa.Label,
+  join_label : @ssa.Label,
+  then_region : Region,
+  else_region : Region,
+) -> Bool {
+  if is_loop_continue_target(ctx, join_label) {
+    return false
+  }
+  if !is_abrupt_exit(ctx, then_region) || !is_abrupt_exit(ctx, else_region) {
+    return false
+  }
+  if !is_loop_exit_target(ctx, if_label, join_label) &&
+    (
+      is_identity_goto_to_cont(ctx, then_region, join_label) ||
+      is_identity_goto_to_cont(ctx, else_region, join_label)
+    ) {
+    return false
+  }
+  if is_bare_empty_return(then_region) || is_bare_empty_return(else_region) {
+    return false
+  }
+  true
+}
+
+///|
 fn build_branch_region(
   ctx : LoweringContext,
+  if_label : @ssa.Label,
   cond : @ssa.Expr,
   then_region : Region,
   else_region : Region,
@@ -278,10 +578,37 @@ fn build_branch_region(
     Some(region) => return region
     None => ()
   }
+  if is_bare_empty_return(then_region) {
+    let cont_label = fresh_label(ctx.id_gen, [])
+    return If(
+      invert_cond(cond),
+      else_region,
+      None,
+      (cont_label, Return([], None)),
+    )
+  }
+  if is_bare_empty_return(else_region) {
+    let cont_label = fresh_label(ctx.id_gen, [])
+    return If(cond, then_region, None, (cont_label, Return([], None)))
+  }
+  if is_empty_transfer_to_enclosing_cont(ctx, if_label, then_region) &&
+    is_abrupt_exit(ctx, else_region) {
+    let cont_label = fresh_label(ctx.id_gen, [])
+    return If(invert_cond(cond), else_region, None, (cont_label, then_region))
+  }
+  if is_empty_transfer_to_enclosing_cont(ctx, if_label, else_region) &&
+    is_abrupt_exit(ctx, then_region) {
+    let cont_label = fresh_label(ctx.id_gen, [])
+    return If(cond, then_region, None, (cont_label, else_region))
+  }
   let then_abrupt = is_abrupt_exit(ctx, then_region)
   let else_abrupt = is_abrupt_exit(ctx, else_region)
   if then_abrupt && else_abrupt {
-    Branch(cond, then_region, else_region)
+    match
+      build_direct_exit_guard(ctx, if_label, cond, then_region, else_region) {
+      Some(region) => region
+      None => build_costed_branch(cond, then_region, else_region)
+    }
   } else if else_abrupt {
     let cont_label = fresh_label(ctx.id_gen, [])
     If(invert_cond(cond), else_region, None, (cont_label, then_region))
@@ -301,21 +628,22 @@ fn build_cond_region(
   then_target : @ssa.Target,
   else_target : @ssa.Target,
 ) -> Region {
+  let cond = normalize_cond(cond)
   let then_label = target_label(then_target)
   let else_label = target_label(else_target)
   match get_if_join(ctx, label, then_label, else_label) {
     None => {
       let then_region = build_entry_region(ctx, then_target)
       let else_region = build_entry_region(ctx, else_target)
-      build_branch_region(ctx, cond, then_region, else_region)
+      build_branch_region(ctx, label, cond, then_region, else_region)
     }
     Some(join_label) =>
       if ctx.conts.contains(join_label) {
         let then_region = build_entry_region(ctx, then_target)
         let else_region = build_entry_region(ctx, else_target)
-        if !is_loop_continue_target(ctx, join_label) &&
-          is_abrupt_exit(ctx, then_region) &&
-          is_abrupt_exit(ctx, else_region) {
+        if should_preserve_abrupt_branch(
+            ctx, label, join_label, then_region, else_region,
+          ) {
           Branch(cond, then_region, else_region)
         } else {
           let bridge_label = fresh_label_like(ctx.id_gen, join_label)
