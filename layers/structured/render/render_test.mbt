@@ -41,7 +41,10 @@ test "structured render prints empty closures on one line" {
         params: [],
         cells: [],
         vararg: false,
-        body: Linear([BindS(value(1), ClosureE({ index: 1 }, []))], Return([], None)),
+        body: Linear(
+          [BindS(value(1), ClosureE({ index: 1 }, []))],
+          Return([], None),
+        ),
       },
       {
         index: 1,

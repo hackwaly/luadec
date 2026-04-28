@@ -65,14 +65,18 @@ fn build_loop_region(
     ctx.synthetic_exit {
     ({ ..ctx, conts: ctx.conts.add(header).add(exit_label) }, None)
   } else if ctx.conts.contains(exit_label) {
-    let bridge_label = fresh_label(ctx.id_gen, exit_label.params)
+    let bridge_label = fresh_label_like(ctx.id_gen, exit_label)
+    let cont_target = bridge_cont_target(ctx, exit_label, bridge_label)
     (
       {
         ..ctx,
         conts: ctx.conts.add(header).add(exit_label).add(bridge_label),
-        cont_redirects: ctx.cont_redirects.add(exit_label, bridge_label),
+        cont_redirects: ctx.cont_redirects.add(
+          exit_label,
+          bridge_redirect_template(exit_label, bridge_label),
+        ),
       },
-      Some((bridge_label, Goto(target_with_label_args(exit_label)))),
+      Some((bridge_label, Goto(cont_target))),
     )
   } else {
     (
@@ -80,5 +84,7 @@ fn build_loop_region(
       Some((exit_label, build_region(ctx, exit_label))),
     )
   }
-  Loop(header, init, UnknownLS, build_region(body_ctx, header), exit_region)
+  let body = build_region(body_ctx, header)
+  let (body, exit_region) = shrink_loop_exit_params(header, body, exit_region)
+  Loop(header, init, UnknownLS, body, exit_region)
 }

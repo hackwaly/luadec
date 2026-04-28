@@ -278,10 +278,14 @@ fn build_branch_region(
     Some(region) => return region
     None => ()
   }
-  if is_abrupt_exit(ctx, else_region) {
+  let then_abrupt = is_abrupt_exit(ctx, then_region)
+  let else_abrupt = is_abrupt_exit(ctx, else_region)
+  if then_abrupt && else_abrupt {
+    Branch(cond, then_region, else_region)
+  } else if else_abrupt {
     let cont_label = fresh_label(ctx.id_gen, [])
     If(invert_cond(cond), else_region, None, (cont_label, then_region))
-  } else if is_abrupt_exit(ctx, then_region) {
+  } else if then_abrupt {
     let cont_label = fresh_label(ctx.id_gen, [])
     If(cond, then_region, None, (cont_label, else_region))
   } else {
@@ -307,17 +311,33 @@ fn build_cond_region(
     }
     Some(join_label) =>
       if ctx.conts.contains(join_label) {
-        let bridge_label = fresh_label(ctx.id_gen, join_label.params)
-        let branch_ctx = {
-          ..ctx,
-          conts: ctx.conts.add(join_label).add(bridge_label),
-          cont_redirects: ctx.cont_redirects.add(join_label, bridge_label),
+        let then_region = build_entry_region(ctx, then_target)
+        let else_region = build_entry_region(ctx, else_target)
+        if !is_loop_continue_target(ctx, join_label) &&
+          is_abrupt_exit(ctx, then_region) &&
+          is_abrupt_exit(ctx, else_region) {
+          Branch(cond, then_region, else_region)
+        } else {
+          let bridge_label = fresh_label_like(ctx.id_gen, join_label)
+          let cont_target = bridge_cont_target(ctx, join_label, bridge_label)
+          let branch_ctx = {
+            ..ctx,
+            conts: ctx.conts.add(join_label).add(bridge_label),
+            cont_redirects: ctx.cont_redirects.add(
+              join_label,
+              bridge_redirect_template(join_label, bridge_label),
+            ),
+          }
+          let then_region = build_entry_region(branch_ctx, then_target)
+          let else_region = build_entry_region(branch_ctx, else_target)
+          let cont_region : Region = Goto(cont_target)
+          let (then_region, else_region, cont) = shrink_if_cont_params(
+            then_region,
+            else_region,
+            (bridge_label, cont_region),
+          )
+          build_if_region(cond, then_region, else_region, cont)
         }
-        let then_region = build_entry_region(branch_ctx, then_target)
-        let else_region = build_entry_region(branch_ctx, else_target)
-        let cont_region : Region = Goto(target_with_label_args(join_label))
-        let cont = (bridge_label, cont_region)
-        build_if_region(cond, then_region, else_region, cont)
       } else {
         let branch_ctx = { ..ctx, conts: ctx.conts.add(join_label) }
         let then_region = build_entry_region(branch_ctx, then_target)

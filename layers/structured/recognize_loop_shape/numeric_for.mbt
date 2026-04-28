@@ -35,7 +35,9 @@ fn match_numeric_init(
     BindS(value, BinaryE(Sub, start, VarE(init_step))) =>
       if value == ctrl && init_step == step {
         let (step, end) = resolve_trailing_numeric_bound(
-          stmts, stmts.length() - 1, VarE(step),
+          stmts,
+          stmts.length() - 1,
+          VarE(step),
         )
         let (limit, end) = resolve_trailing_numeric_bound(stmts, end, limit)
         Some({ remaining_stmts: take_stmts(stmts, end), start, limit, step })
@@ -109,12 +111,7 @@ fn recognize_numeric_loop(
   let loop_region = @structured.Loop(
     new_header,
     drop_last_exprs(init_args),
-    @structured.NumericForLS(
-      protocol.value,
-      init.start,
-      init.limit,
-      init.step,
-    ),
+    @structured.NumericForLS(protocol.value, init.start, init.limit, init.step),
     dropper.visit_Region(protocol.body),
     exit_region,
   )

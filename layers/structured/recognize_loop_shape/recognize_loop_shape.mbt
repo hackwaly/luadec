@@ -47,26 +47,6 @@ priv struct GenericInit {
 }
 
 ///|
-priv struct VarMention {
-  value : @ssa.Var
-  found : Array[Bool]
-}
-
-///|
-priv struct DropLabelParams {
-  old_label : @ssa.Label
-  new_label : @ssa.Label
-  keep_indices : Array[Int]
-}
-
-///|
-impl @structured.IterVisitor for VarMention with visit_Var(self, value) {
-  if value == self.value {
-    self.found[0] = true
-  }
-}
-
-///|
 impl @structured.MapVisitor for RedirectContinue with visit_Region_Goto(
   self,
   target~,
@@ -74,28 +54,6 @@ impl @structured.MapVisitor for RedirectContinue with visit_Region_Goto(
   let Target(label, args) = target
   if label == self.from {
     Goto(Target(self.to, args.map(fn(arg) { self.visit_Expr(arg) })))
-  } else {
-    Goto(self.visit_Target(target))
-  }
-}
-
-///|
-impl @structured.MapVisitor for DropLabelParams with visit_Region_Goto(
-  self,
-  target~,
-) {
-  let Target(label, args) = target
-  if label == self.old_label && args.length() == self.old_label.params.length() {
-    let kept_args : Array[@ssa.Expr] = []
-    for index in self.keep_indices {
-      kept_args.push(args[index])
-    }
-    Goto(
-      Target(
-        self.new_label,
-        kept_args.map(fn(arg) { self.visit_Expr(arg) }),
-      ),
-    )
   } else {
     Goto(self.visit_Target(target))
   }
@@ -121,27 +79,6 @@ impl @structured.MapVisitor for DropLoopControl with visit_Region_Goto(
 }
 
 ///|
-impl @structured.MapVisitor for DropLoopControl with visit_Region_Loop(
-  self,
-  header~,
-  init_args~,
-  shape~,
-  body~,
-  exit_region~,
-) {
-  let header = self.visit_Label(header)
-  let init_args = init_args.map(fn(arg) { self.visit_Expr(arg) })
-  let shape = self.visit_LoopShape(shape)
-  let body = self.visit_Region(body)
-  let exit_region = exit_region.map(fn(item) {
-    let (label, region) = item
-    (self.visit_Label(label), self.visit_Region(region))
-  })
-  let (body, exit_region) = prune_unused_exit_params(body, exit_region)
-  Loop(header, init_args, shape, body, exit_region)
-}
-
-///|
 fn drop_last_exprs(values : Array[@ssa.Expr]) -> Array[@ssa.Expr] {
   guard values.length() > 0 else { return [] }
   let out : Array[@ssa.Expr] = []
@@ -159,44 +96,6 @@ fn drop_last_vars(values : Array[@ssa.Var]) -> Array[@ssa.Var] {
     out.push(values[i])
   }
   out
-}
-
-///|
-fn region_mentions_var(region : Region, value : @ssa.Var) -> Bool {
-  let found = [false]
-  let visitor : VarMention = { value, found }
-  visitor.visit_Region(region)
-  found[0]
-}
-
-///|
-fn prune_unused_exit_params(
-  body : Region,
-  exit_region : (@ssa.Label, Region)?,
-) -> (Region, (@ssa.Label, Region)?) {
-  match exit_region {
-    Some((exit_label, exit_body)) => {
-      let keep_indices : Array[Int] = []
-      let kept_params : Array[@ssa.Var] = []
-      for i in 0..<exit_label.params.length() {
-        let param = exit_label.params[i]
-        if region_mentions_var(exit_body, param) {
-          keep_indices.push(i)
-          kept_params.push(param)
-        }
-      }
-      guard kept_params.length() < exit_label.params.length() else {
-        return (body, exit_region)
-      }
-      let new_label = { ..exit_label, params: kept_params }
-      let dropper : DropLabelParams = { old_label: exit_label, new_label, keep_indices }
-      (
-        dropper.visit_Region(body),
-        Some((new_label, dropper.visit_Region(exit_body))),
-      )
-    }
-    None => (body, None)
-  }
 }
 
 ///|
