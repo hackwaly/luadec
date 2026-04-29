@@ -141,3 +141,152 @@ test "from_structured lowers recognized numeric for shape" {
     _ => panic()
   }
 }
+
+///|
+test "from_structured drops trailing empty return from function body" {
+  let id_gen = @ssa.IdGen::IdGen()
+  match from_program(program_with(id_gen, @structured.Return([], None))) {
+    [] => ()
+    _ => panic()
+  }
+}
+
+///|
+test "from_structured drops trailing empty return from closure body" {
+  let id_gen = @ssa.IdGen::IdGen()
+  let func_id : @ssa.FuncId = { index: 1 }
+  let result = fresh_var(id_gen)
+  let program : @structured.Program = {
+    _id_gen: id_gen,
+    funcs: [
+      {
+        index: 0,
+        params: [],
+        cells: [],
+        vararg: false,
+        body: @structured.Return([@ssa.ClosureE(func_id, [])], None),
+      },
+      {
+        index: 1,
+        params: [result],
+        cells: [],
+        vararg: false,
+        body: @structured.Return([], None),
+      },
+    ],
+    main: { index: 0 },
+  }
+
+  match from_program(program) {
+    [
+      @expr.ReturnS(
+        [@expr.ClosureE({ params: [actual_param], vararg: false, body: [] })],
+        None
+      ),
+    ] => {
+      guard actual_param == result else { panic() }
+    }
+    _ => panic()
+  }
+}
+
+///|
+test "from_structured avoids empty return in tail continuation" {
+  let id_gen = @ssa.IdGen::IdGen()
+  let cond = fresh_var(id_gen)
+  let cont = fresh_label(id_gen, [])
+  let body = @structured.If(
+    @ssa.VarE(cond),
+    @structured.Goto(@ssa.Target(cont, [])),
+    None,
+    (cont, @structured.Return([], None)),
+  )
+
+  match from_program(program_with(id_gen, body)) {
+    [@expr.IfS([(@expr.VarE(actual_cond), [])], None)] => {
+      guard actual_cond == cond else { panic() }
+    }
+    _ => panic()
+  }
+}
+
+///|
+test "from_structured avoids empty return in loop exit tail continuation" {
+  let id_gen = @ssa.IdGen::IdGen()
+  let header = fresh_label(id_gen, [])
+  let exit = fresh_label(id_gen, [])
+  let body = @structured.Loop(
+    header,
+    [],
+    @structured.UnknownLS,
+    @structured.Goto(@ssa.Target(exit, [])),
+    Some((exit, @structured.Return([], None))),
+  )
+
+  match from_program(program_with(id_gen, body)) {
+    [@expr.WhileS(@expr.ConstE(Boolean(true)), [@expr.BreakS])] => ()
+    _ => panic()
+  }
+}
+
+///|
+test "from_structured avoids empty return in numeric loop exit tail continuation" {
+  let id_gen = @ssa.IdGen::IdGen()
+  let value = fresh_var(id_gen)
+  let header = fresh_label(id_gen, [])
+  let exit = fresh_label(id_gen, [])
+  let body = @structured.Loop(
+    header,
+    [],
+    @structured.NumericForLS(value, int_expr(1), int_expr(3), int_expr(1)),
+    @structured.Goto(@ssa.Target(exit, [])),
+    Some((exit, @structured.Return([], None))),
+  )
+
+  match from_program(program_with(id_gen, body)) {
+    [
+      @expr.NumericForS(
+        actual_value,
+        @expr.ConstE(Integer(1L)),
+        @expr.ConstE(Integer(3L)),
+        Some(@expr.ConstE(Integer(1L))),
+        [@expr.BreakS]
+      ),
+    ] => {
+      guard actual_value == value else { panic() }
+    }
+    _ => panic()
+  }
+}
+
+///|
+test "from_structured avoids empty return in generic loop exit tail continuation" {
+  let id_gen = @ssa.IdGen::IdGen()
+  let key = fresh_var(id_gen)
+  let value = fresh_var(id_gen)
+  let iter = fresh_var(id_gen)
+  let header = fresh_label(id_gen, [])
+  let exit = fresh_label(id_gen, [])
+  let body = @structured.Loop(
+    header,
+    [],
+    @structured.GenericForLS([key, value], [@ssa.VarE(iter)], None),
+    @structured.Goto(@ssa.Target(exit, [])),
+    Some((exit, @structured.Return([], None))),
+  )
+
+  match from_program(program_with(id_gen, body)) {
+    [
+      @expr.GenericForS(
+        [actual_key, actual_value],
+        [@expr.VarE(actual_iter)],
+        None,
+        [@expr.BreakS]
+      ),
+    ] => {
+      guard actual_key == key && actual_value == value else { panic() }
+      guard actual_iter == iter else { panic() }
+    }
+    _ => panic()
+  }
+}
