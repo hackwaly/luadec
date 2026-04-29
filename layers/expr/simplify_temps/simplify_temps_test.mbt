@@ -108,6 +108,38 @@ test "simplify_temps keeps temp with later uses" {
 }
 
 ///|
+test "simplify_temps drops unused nil bindings" {
+  let unused1 = value(0)
+  let unused2 = value(1)
+  let used = value(2)
+  inspect(
+    simplify_render([
+      @expr.BindS(unused1, @expr.ConstE(Nil)),
+      @expr.BindS(unused2, @expr.ConstE(Nil)),
+      @expr.BindS(used, int(3)),
+      @expr.ReturnS([@expr.VarE(used)], None),
+    ]),
+    content=(
+      #|return 3
+    ),
+  )
+}
+
+///|
+test "simplify_temps keeps used nil binding" {
+  let used = value(0)
+  inspect(
+    simplify_render([
+      @expr.BindS(used, @expr.ConstE(Nil)),
+      @expr.ReturnS([@expr.VarE(used)], None),
+    ]),
+    content=(
+      #|return nil
+    ),
+  )
+}
+
+///|
 test "simplify_temps inlines single-use cell temp assignment" {
   let source = cell(0)
   let tmp = cell(1)

@@ -288,6 +288,23 @@ fn cleanup_unused_empty_locals(body : Block) -> (Block, Bool) {
 }
 
 ///|
+fn cleanup_unused_nil_binds(
+  body : Block,
+  uses : Map[@ssa.Var, Int],
+) -> (Block, Bool) {
+  let out : Block = []
+  let changed = [false]
+  for stmt in body {
+    match stmt {
+      BindS(value, ConstE(Nil)) if uses.get(value).unwrap_or(0) == 0 =>
+        changed[0] = true
+      _ => out.push(stmt)
+    }
+  }
+  (out, changed[0])
+}
+
+///|
 fn maybe_inline_tmp(
   stmt : Stmt,
   tmp : @ssa.Var,
@@ -383,8 +400,9 @@ fn simplify_block_once(body : Block) -> (Block, Bool) {
     }
   }
   let (out, locals_changed) = cleanup_unused_empty_locals(out)
+  let (out, unused_nil_changed) = cleanup_unused_nil_binds(out, uses)
   let (out, deferred_changed) = inline_deferred_single_use_binds(out, uses)
-  (out, changed[0] || locals_changed || deferred_changed)
+  (out, changed[0] || locals_changed || unused_nil_changed || deferred_changed)
 }
 
 ///|
