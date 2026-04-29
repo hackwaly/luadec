@@ -242,6 +242,77 @@ test "recover folds or condition with matching target args" {
 }
 
 ///|
+test "recover folds guard chain with equivalent empty return targets" {
+  let id_gen = @ssa.IdGen()
+  let entry = fresh_label(id_gen)
+  let rhs_label = fresh_label(id_gen)
+  let third_label = fresh_label(id_gen)
+  let body_label = fresh_label(id_gen)
+  let return_a = fresh_label(id_gen)
+  let return_b = fresh_label(id_gen)
+  let return_c = fresh_label(id_gen)
+  let lhs = fresh_var(id_gen)
+  let rhs = fresh_var(id_gen)
+  let third = fresh_var(id_gen)
+  let result = fresh_var(id_gen)
+
+  let mut blocks : SortedMap[@ssa.Label, @ssa.Block] = SortedMap::new()
+  blocks = blocks.add(entry, {
+    stmts: [],
+    term: @ssa.CondT(
+      @ssa.VarE(lhs),
+      @ssa.Target(rhs_label, []),
+      @ssa.Target(return_a, []),
+    ),
+  })
+  blocks = blocks.add(rhs_label, {
+    stmts: [],
+    term: @ssa.CondT(
+      @ssa.VarE(rhs),
+      @ssa.Target(third_label, []),
+      @ssa.Target(return_b, []),
+    ),
+  })
+  blocks = blocks.add(third_label, {
+    stmts: [],
+    term: @ssa.CondT(
+      @ssa.VarE(third),
+      @ssa.Target(body_label, []),
+      @ssa.Target(return_c, []),
+    ),
+  })
+  blocks = blocks.add(body_label, {
+    stmts: [],
+    term: @ssa.ReturnT([@ssa.VarE(result)], None),
+  })
+  blocks = blocks.add(return_a, { stmts: [], term: @ssa.ReturnT([], None) })
+  blocks = blocks.add(return_b, { stmts: [], term: @ssa.ReturnT([], None) })
+  blocks = blocks.add(return_c, { stmts: [], term: @ssa.ReturnT([], None) })
+
+  let recovered = recover_boolean(program_with(id_gen, blocks, entry))
+  let func = recovered.funcs[0]
+  guard func.blocks.get(rhs_label) is None else { panic() }
+  guard func.blocks.get(third_label) is None else { panic() }
+  match func.blocks[entry].term {
+    @ssa.CondT(
+      @ssa.AndE(
+        @ssa.AndE(@ssa.VarE(actual_lhs), @ssa.VarE(actual_rhs)),
+        @ssa.VarE(actual_third)
+      ),
+      @ssa.Target(actual_body, []),
+      @ssa.Target(actual_return, [])
+    ) => {
+      guard actual_lhs == lhs else { panic() }
+      guard actual_rhs == rhs else { panic() }
+      guard actual_third == third else { panic() }
+      guard actual_body == body_label else { panic() }
+      guard actual_return == return_a else { panic() }
+    }
+    _ => panic()
+  }
+}
+
+///|
 test "recover folds value branch into and expression" {
   let id_gen = @ssa.IdGen()
   let entry = fresh_label(id_gen)

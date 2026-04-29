@@ -359,12 +359,40 @@ fn normalize_stmt(stmt : @expr.Stmt) -> Array[@expr.Stmt] {
 }
 
 ///|
-fn normalize_block(body : @expr.Block) -> @expr.Block {
+fn fold_abrupt_continuation_guards(body : @expr.Block) -> @expr.Block {
   let out : @expr.Block = []
-  for stmt in body {
-    append_all(out, normalize_stmt(stmt))
+  let mut i = 0
+  while i < body.length() {
+    if i + 1 < body.length() {
+      match (body[i], body[i + 1]) {
+        (
+          @expr.IfS([(cond, then_body)], None),
+          @expr.ReturnS(_, _)
+          | @expr.BreakS as cont,
+        ) if block_is_abrupt_exit(then_body) &&
+          cond_cost(invert_cond(cond)) <= cond_cost(cond) => {
+          let inverted = invert_cond(cond)
+          out.push(@expr.IfS([(inverted, [cont])], None))
+          append_all(out, then_body)
+          i = i + 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    out.push(body[i])
+    i = i + 1
   }
   out
+}
+
+///|
+fn normalize_block(body : @expr.Block) -> @expr.Block {
+  let normalized : @expr.Block = []
+  for stmt in body {
+    append_all(normalized, normalize_stmt(stmt))
+  }
+  fold_abrupt_continuation_guards(normalized)
 }
 
 ///|

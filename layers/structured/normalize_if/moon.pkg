@@ -1,7 +1,0 @@
-import {
-  "hackwaly/luadec/layers/ssa" @ssa,
-  "hackwaly/luadec/layers/structured" @structured,
-  "hackwaly/luadec/layers/structured/render" @structured/render,
-}
-
-warnings = "-missing_pattern_field-unused_package"

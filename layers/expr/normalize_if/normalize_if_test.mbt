@@ -174,3 +174,75 @@ test "expr normalize_if turns break else into inverted guard" {
     ),
   )
 }
+
+///|
+test "expr normalize_if folds following return into nested guard chain" {
+  let first = value(0)
+  let second = value(1)
+  let third = value(2)
+  let v3 = value(3)
+  let v4 = value(4)
+  let v5 = value(5)
+  let body : @expr.Program = [
+    @expr.IfS(
+      [
+        (
+          @expr.BinaryE(Neq, @expr.VarE(first), @expr.ConstE(Nil)),
+          [
+            @expr.BindS(v3, int(3)),
+            @expr.IfS(
+              [
+                (
+                  @expr.BinaryE(Neq, @expr.VarE(second), @expr.ConstE(Nil)),
+                  [
+                    @expr.BindS(v4, int(4)),
+                    @expr.IfS(
+                      [
+                        (
+                          @expr.BinaryE(
+                            Neq,
+                            @expr.VarE(third),
+                            @expr.ConstE(Nil),
+                          ),
+                          [
+                            @expr.BindS(v5, int(5)),
+                            @expr.ReturnS([int(6)], None),
+                          ],
+                        ),
+                      ],
+                      None,
+                    ),
+                    @expr.ReturnS([], None),
+                  ],
+                ),
+              ],
+              None,
+            ),
+            @expr.ReturnS([], None),
+          ],
+        ),
+      ],
+      None,
+    ),
+    @expr.ReturnS([], None),
+  ]
+
+  inspect(
+    normalize_render(body),
+    content=(
+      #|if v0 == nil then
+      #|  return
+      #|end
+      #|local v3 = 3
+      #|if v1 == nil then
+      #|  return
+      #|end
+      #|local v4 = 4
+      #|if v2 == nil then
+      #|  return
+      #|end
+      #|local v5 = 5
+      #|return 6
+    ),
+  )
+}

@@ -30,6 +30,29 @@ fn same_target(lhs : @ssa.Target, rhs : @ssa.Target) -> Bool {
 }
 
 ///|
+fn target_is_empty_return(
+  blocks : Map[@ssa.Label, @ssa.Block],
+  target : @ssa.Target,
+) -> Bool {
+  let @ssa.Target(label, args) = target
+  guard args.length() == 0 && label.params.length() == 0 else { return false }
+  match blocks.get(label) {
+    Some({ stmts: [], term: @ssa.ReturnT([], None) }) => true
+    _ => false
+  }
+}
+
+///|
+fn same_destination(
+  blocks : Map[@ssa.Label, @ssa.Block],
+  lhs : @ssa.Target,
+  rhs : @ssa.Target,
+) -> Bool {
+  same_target(lhs, rhs) ||
+  (target_is_empty_return(blocks, lhs) && target_is_empty_return(blocks, rhs))
+}
+
+///|
 fn pred_count(
   blocks : SortedMap[@ssa.Label, @ssa.Block],
 ) -> Map[@ssa.Label, Int] {
@@ -270,8 +293,8 @@ fn rewrite_cond_and_or(
       .unwrap_or(0) ==
       1 =>
       match get_cond_block(blocks, rhs_label) {
-        Some((rhs, true_target, rhs_false)) if same_target(
-            rhs_false, false_target,
+        Some((rhs, true_target, rhs_false)) if same_destination(
+            blocks, rhs_false, false_target,
           ) =>
           Some(
             (
@@ -286,8 +309,8 @@ fn rewrite_cond_and_or(
               SortedSet::new().add(rhs_label),
             ),
           )
-        Some((rhs, rhs_true, false_target2)) if same_target(
-            rhs_true, false_target,
+        Some((rhs, rhs_true, false_target2)) if same_destination(
+            blocks, rhs_true, false_target,
           ) =>
           Some(
             (
@@ -309,8 +332,8 @@ fn rewrite_cond_and_or(
       .unwrap_or(0) ==
       1 =>
       match get_cond_block(blocks, rhs_label) {
-        Some((rhs, rhs_true, false_target)) if same_target(
-            rhs_true, true_target,
+        Some((rhs, rhs_true, false_target)) if same_destination(
+            blocks, rhs_true, true_target,
           ) =>
           Some(
             (
@@ -325,8 +348,8 @@ fn rewrite_cond_and_or(
               SortedSet::new().add(rhs_label),
             ),
           )
-        Some((rhs, true_target2, rhs_false)) if same_target(
-            rhs_false, true_target,
+        Some((rhs, true_target2, rhs_false)) if same_destination(
+            blocks, rhs_false, true_target,
           ) =>
           Some(
             (
