@@ -307,3 +307,36 @@ test "expr normalize_if lifts repeated default cell assignment through guards" {
     ),
   )
 }
+
+///|
+test "expr normalize_if pulls leading return branch out of elseif chain" {
+  let started = value(0)
+  let prepared = value(1)
+  let body : @expr.Program = [
+    @expr.IfS(
+      [
+        (@expr.VarE(started), [@expr.ReturnS([bool(false)], None)]),
+        (
+          @expr.VarE(prepared),
+          [@expr.BindS(value(2), int(2)), @expr.ReturnS([bool(true)], None)],
+        ),
+      ],
+      Some([@expr.BindS(value(3), int(3)), @expr.ReturnS([bool(false)], None)]),
+    ),
+  ]
+
+  inspect(
+    normalize_render(body),
+    content=(
+      #|if v0 then
+      #|  return false
+      #|end
+      #|if v1 then
+      #|  local v2 = 2
+      #|  return true
+      #|end
+      #|local v3 = 3
+      #|return false
+    ),
+  )
+}
