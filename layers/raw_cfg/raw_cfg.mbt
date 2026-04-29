@@ -56,8 +56,6 @@ pub(all) enum Expr {
 ///|
 pub(all) struct Label {
   pc : Int
-
-  fn new(pc~ : Int) -> Label
 } derive(Eq, Compare, Hash)
 
 ///|
@@ -128,7 +126,7 @@ pub impl Debug for Local with to_repr(self) {
 }
 
 ///|
-pub fn Label::new(pc~ : Int) -> Label {
+pub fn Label::Label(pc~ : Int) -> Label {
   { pc, }
 }
 

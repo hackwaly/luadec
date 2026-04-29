@@ -276,7 +276,7 @@ fn write_proto(
   write_line(
     builder,
     depth,
-    "proto#\{proto.index} source=\{proto.source} lines=\{proto.line_defined}..\{proto.last_line_defined}" +
+    "proto#\{proto.index} lines=\{proto.line_defined}..\{proto.last_line_defined}" +
     " params=\{proto.param_count} vararg=\{proto.vararg} stack=\{proto.max_stack_size}",
   )
   write_line(builder, depth, "code[\{proto.code.length()}]")

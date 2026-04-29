@@ -9,12 +9,12 @@ fn nth_id(id_gen : @ssa.IdGen, value : Int) -> @ssa.Id {
 
 ///|
 fn value(value : Int) -> @ssa.Var {
-  { id: nth_id(@ssa.IdGen::new(), value) }
+  { id: nth_id(@ssa.IdGen(), value) }
 }
 
 ///|
 fn label(value : Int, params? : Array[@ssa.Var] = []) -> @ssa.Label {
-  { id: nth_id(@ssa.IdGen::new(), value), params }
+  { id: nth_id(@ssa.IdGen(), value), params }
 }
 
 ///|
@@ -30,7 +30,7 @@ fn bool(value : Bool) -> @ssa.Expr {
 ///|
 fn program_with(body : @structured.Region) -> @structured.Program {
   {
-    _id_gen: @ssa.IdGen::new(),
+    _id_gen: @ssa.IdGen(),
     funcs: [{ index: 0, params: [], cells: [], vararg: false, body }],
     main: { index: 0 },
   }

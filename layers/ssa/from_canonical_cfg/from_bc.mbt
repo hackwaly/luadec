@@ -1,6 +1,6 @@
 ///|
 pub fn from_canonical_cfg(prog : @canonical_cfg.Program) -> Program {
-  let id_gen = IdGen::new()
+  let id_gen = IdGen()
   let plans = plan_program(prog, id_gen)
   let built_funcs : Map[Int, Func] = {}
   let built : Map[@canonical_cfg.FuncId, Bool] = {}

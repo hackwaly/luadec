@@ -67,31 +67,27 @@ extern "js" fn rmdir_impl(
 
 ///|
 pub async fn read_file(path : StringView) -> &@io.Data {
-  @js_async.run_promise(signal => read_file_impl(path.to_string(), signal))
+  @js_async.run_promise(signal => read_file_impl(path.to_owned(), signal))
 }
 
 ///|
 pub async fn write_file(path : StringView, content : &@io.Data) -> Unit {
   @js_async.run_promise(_signal => {
-    write_file_impl(path.to_string(), content.binary(), _signal)
+    write_file_impl(path.to_owned(), content.binary(), _signal)
   })
 }
 
 ///|
 pub async fn unlink(path : StringView) -> Unit {
-  @js_async.run_promise(signal => unlink_impl(path.to_string(), signal))
+  @js_async.run_promise(signal => unlink_impl(path.to_owned(), signal))
 }
 
 ///|
 pub async fn mkdir(path : StringView, recursive? : Bool = false) -> Unit {
-  @js_async.run_promise(signal => {
-    mkdir_impl(path.to_string(), recursive, signal)
-  })
+  @js_async.run_promise(signal => mkdir_impl(path.to_owned(), recursive, signal))
 }
 
 ///|
 pub async fn rmdir(path : StringView, recursive? : Bool = false) -> Unit {
-  @js_async.run_promise(signal => {
-    rmdir_impl(path.to_string(), recursive, signal)
-  })
+  @js_async.run_promise(signal => rmdir_impl(path.to_owned(), recursive, signal))
 }

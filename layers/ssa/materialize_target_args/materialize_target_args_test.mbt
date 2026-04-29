@@ -50,7 +50,7 @@ fn program_with(
 
 ///|
 test "materialize rewrites jump target expressions in predecessor block" {
-  let id_gen = @ssa.IdGen::new()
+  let id_gen = @ssa.IdGen()
   let entry = fresh_label(id_gen)
   let param = fresh_var(id_gen)
   let merge = fresh_label_with_params(id_gen, [param])
@@ -90,7 +90,7 @@ test "materialize rewrites jump target expressions in predecessor block" {
 
 ///|
 test "materialize inserts conditional bridge blocks for expression args" {
-  let id_gen = @ssa.IdGen::new()
+  let id_gen = @ssa.IdGen()
   let entry = fresh_label(id_gen)
   let result = fresh_var(id_gen)
   let merge = fresh_label_with_params(id_gen, [result])

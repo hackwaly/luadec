@@ -37,7 +37,7 @@ fn program_with(
 
 ///|
 test "recover folds nested conditional into and expression" {
-  let id_gen = @ssa.IdGen::new()
+  let id_gen = @ssa.IdGen()
   let entry = fresh_label(id_gen)
   let rhs_label = fresh_label(id_gen)
   let true_label = fresh_label(id_gen)
@@ -91,7 +91,7 @@ test "recover folds nested conditional into and expression" {
 
 ///|
 test "recover normalizes negated and condition" {
-  let id_gen = @ssa.IdGen::new()
+  let id_gen = @ssa.IdGen()
   let entry = fresh_label(id_gen)
   let rhs_label = fresh_label(id_gen)
   let true_label = fresh_label(id_gen)
@@ -143,7 +143,7 @@ test "recover normalizes negated and condition" {
 
 ///|
 test "recover folds or condition with negated rhs branch" {
-  let id_gen = @ssa.IdGen::new()
+  let id_gen = @ssa.IdGen()
   let entry = fresh_label(id_gen)
   let rhs_label = fresh_label(id_gen)
   let body_label = fresh_label(id_gen)
@@ -194,7 +194,7 @@ test "recover folds or condition with negated rhs branch" {
 
 ///|
 test "recover folds value branch into and expression" {
-  let id_gen = @ssa.IdGen::new()
+  let id_gen = @ssa.IdGen()
   let entry = fresh_label(id_gen)
   let join = fresh_label(id_gen)
   let lhs = fresh_var(id_gen)
@@ -238,7 +238,7 @@ test "recover folds value branch into and expression" {
 
 ///|
 test "recover folds expression fallback branch into or expression" {
-  let id_gen = @ssa.IdGen::new()
+  let id_gen = @ssa.IdGen()
   let entry = fresh_label(id_gen)
   let join = fresh_label(id_gen)
   let cond = fresh_var(id_gen)
@@ -288,7 +288,7 @@ test "recover folds expression fallback branch into or expression" {
 
 ///|
 test "recover folds boolean bridge values into condition" {
-  let id_gen = @ssa.IdGen::new()
+  let id_gen = @ssa.IdGen()
   let entry = fresh_label(id_gen)
   let true_bridge = fresh_label(id_gen)
   let false_bridge = fresh_label(id_gen)

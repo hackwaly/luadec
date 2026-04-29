@@ -4,12 +4,10 @@ pub struct Id(Int) derive(Debug, Eq, Compare, Hash)
 ///|
 pub struct IdGen {
   mut next : Int
-
-  fn new() -> IdGen
 } derive(Debug)
 
 ///|
-pub fn IdGen::new() -> IdGen {
+pub fn IdGen::IdGen() -> IdGen {
   { next: 0 }
 }
 

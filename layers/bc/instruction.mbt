@@ -9,12 +9,10 @@ pub(all) struct Instruction {
   ax : Int
   bx : Int
   sbx : Int
-
-  fn new(UInt) -> Instruction
 } derive(Debug)
 
 ///|
-pub fn Instruction::new(raw : UInt) -> Instruction {
+pub fn Instruction::Instruction(raw : UInt) -> Instruction {
   let op = opcodes[(raw & 0x3FU).reinterpret_as_int()]
   let a = ((raw >> 6) & 0xFFU).reinterpret_as_int()
   let c = ((raw >> 14) & 0x1FFU).reinterpret_as_int()

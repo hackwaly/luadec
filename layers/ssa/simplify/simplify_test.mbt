@@ -18,7 +18,7 @@ fn int_expr(value : Int) -> @ssa.Expr {
 
 ///|
 test "simplify keeps parameterized forwarding blocks" {
-  let id_gen = @ssa.IdGen::new()
+  let id_gen = @ssa.IdGen()
   let entry = fresh_label(id_gen)
   let from_wave_time = fresh_label(id_gen)
   let carry_duration = fresh_label(id_gen)
@@ -95,7 +95,7 @@ test "simplify keeps parameterized forwarding blocks" {
 
 ///|
 test "simplify preserves cond values also used as target args" {
-  let id_gen = @ssa.IdGen::new()
+  let id_gen = @ssa.IdGen()
   let entry = fresh_label(id_gen)
   let else_label = fresh_label(id_gen)
   let value = fresh_var(id_gen)
@@ -158,7 +158,7 @@ test "simplify preserves cond values also used as target args" {
 
 ///|
 test "simplify inlines single-use expression into jump target args" {
-  let id_gen = @ssa.IdGen::new()
+  let id_gen = @ssa.IdGen()
   let param = fresh_var(id_gen)
   let entry = { ..fresh_label(id_gen), params: [param] }
   let expr_pred = fresh_label(id_gen)

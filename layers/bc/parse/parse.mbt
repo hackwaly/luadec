@@ -239,7 +239,7 @@ fn Parser::read_string(self : Parser, header : Header) -> Bytes? raise Failure {
     self.parse_error("invalid string length")
   }
   let payload_size = size - 1
-  Some(self.take(payload_size).to_bytes())
+  Some(self.take(payload_size).to_owned())
 }
 
 ///|
@@ -248,7 +248,7 @@ fn Parser::read_instruction(
   header : Header,
 ) -> Instruction raise Failure {
   let raw = self.read_uint(header.instruction_size, header.endianness)
-  Instruction::new(raw.to_uint())
+  Instruction(raw.to_uint())
 }
 
 ///|
