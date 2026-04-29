@@ -140,6 +140,53 @@ test "simplify_temps keeps used nil binding" {
 }
 
 ///|
+test "simplify_temps inlines nil binding with multiple uses" {
+  let nil_value = value(0)
+  let first = cell(1)
+  let second = cell(2)
+  inspect(
+    simplify_render([
+      @expr.BindS(nil_value, @expr.ConstE(Nil)),
+      @expr.ParallelAssignS([first], [@expr.VarE(nil_value)]),
+      @expr.ParallelAssignS([second], [@expr.VarE(nil_value)]),
+    ]),
+    content=(
+      #|c1 = nil
+      #|c2 = nil
+    ),
+  )
+}
+
+///|
+test "simplify_temps keeps nil binding captured by closure body" {
+  let nil_value = value(0)
+  let target = cell(1)
+  inspect(
+    simplify_render([
+      @expr.BindS(nil_value, @expr.ConstE(Nil)),
+      @expr.ParallelAssignS([target], [@expr.VarE(nil_value)]),
+      @expr.ReturnS(
+        [
+          @expr.ClosureE({
+            params: [],
+            vararg: false,
+            body: [@expr.ReturnS([@expr.VarE(nil_value)], None)],
+          }),
+        ],
+        None,
+      ),
+    ]),
+    content=(
+      #|local v0 = nil
+      #|c1 = nil
+      #|return function()
+      #|  return v0
+      #|end
+    ),
+  )
+}
+
+///|
 test "simplify_temps inlines single-use cell temp assignment" {
   let source = cell(0)
   let tmp = cell(1)

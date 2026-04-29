@@ -24,6 +24,7 @@ priv struct CellAlias {
 priv struct InlineSubst {
   subst : Map[@ssa.Var, Expr]
   deleted : Map[@ssa.Var, Bool]
+  used_count : Map[@ssa.Var, Int]
 }
 
 ///|
@@ -75,8 +76,11 @@ impl @expr.MapVisitor for CellAlias with visit_Cell(self, cell) {
 impl @expr.MapVisitor for InlineSubst with visit_Expr_VarE(self, value~) {
   match self.subst.get(value) {
     Some(expr) => {
-      self.deleted[value] = true
-      self.subst.remove(value)
+      self.used_count[value] = self.used_count.get(value).unwrap_or(0) + 1
+      if !can_inline_multiple_uses(expr) {
+        self.deleted[value] = true
+        self.subst.remove(value)
+      }
       expr
     }
     None => @expr.VarE(value)
@@ -196,12 +200,21 @@ fn can_defer_inline_expr(expr : Expr) -> Bool {
 }
 
 ///|
+fn can_inline_multiple_uses(expr : Expr) -> Bool {
+  match expr {
+    ConstE(Nil) => true
+    _ => false
+  }
+}
+
+///|
 fn rewrite_with_subst(
   subst : Map[@ssa.Var, Expr],
   deleted : Map[@ssa.Var, Bool],
+  used_count : Map[@ssa.Var, Int],
   stmt : Stmt,
 ) -> Stmt {
-  let inliner : InlineSubst = { subst, deleted }
+  let inliner : InlineSubst = { subst, deleted, used_count }
   inliner.visit_Stmt(stmt)
 }
 
@@ -212,20 +225,28 @@ fn inline_deferred_single_use_binds(
 ) -> (Block, Bool) {
   let subst : Map[@ssa.Var, Expr] = {}
   let deleted : Map[@ssa.Var, Bool] = {}
+  let used_count : Map[@ssa.Var, Int] = {}
   let out : Block = []
   let changed = [false]
   for stmt in body {
     match stmt {
-      BindS(value, expr) if uses.get(value).unwrap_or(0) == 1 &&
+      BindS(value, expr) if (
+          uses.get(value).unwrap_or(0) == 1 || can_inline_multiple_uses(expr)
+        ) &&
         can_defer_inline_expr(expr) => {
-        let stmt = rewrite_with_subst(subst, deleted, @expr.BindS(value, expr))
+        let stmt = rewrite_with_subst(
+          subst,
+          deleted,
+          used_count,
+          @expr.BindS(value, expr),
+        )
         match stmt {
           BindS(_, expr) => subst[value] = expr
           _ => panic()
         }
         out.push(stmt)
       }
-      _ => out.push(rewrite_with_subst(subst, deleted, stmt))
+      _ => out.push(rewrite_with_subst(subst, deleted, used_count, stmt))
     }
   }
   let filtered : Block = []
@@ -233,6 +254,10 @@ fn inline_deferred_single_use_binds(
     match stmt {
       BindS(value, _) if deleted.get(value).unwrap_or(false) =>
         changed[0] = true
+      BindS(value, _) if used_count.get(value).unwrap_or(0) ==
+        uses.get(value).unwrap_or(0) &&
+        subst.get(value) is Some(_) &&
+        used_count.get(value).unwrap_or(0) > 0 => changed[0] = true
       _ => filtered.push(stmt)
     }
   }
