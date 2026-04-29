@@ -21,6 +21,12 @@ priv struct CellAlias {
 }
 
 ///|
+priv struct InlineSubst {
+  subst : Map[@ssa.Var, Expr]
+  deleted : Map[@ssa.Var, Bool]
+}
+
+///|
 impl @expr.IterVisitor for UseCounter with visit_Expr_VarE(self, value~) {
   self.uses[value] = self.uses.get(value).unwrap_or(0) + 1
 }
@@ -63,6 +69,24 @@ impl @expr.MapVisitor for CellAlias with visit_Cell(self, cell) {
   } else {
     cell
   }
+}
+
+///|
+impl @expr.MapVisitor for InlineSubst with visit_Expr_VarE(self, value~) {
+  match self.subst.get(value) {
+    Some(expr) => {
+      self.deleted[value] = true
+      self.subst.remove(value)
+      expr
+    }
+    None => @expr.VarE(value)
+  }
+}
+
+///|
+impl @expr.MapVisitor for InlineSubst with visit_Expr_ClosureE(self, func~) {
+  ignore(self)
+  @expr.ClosureE(func)
 }
 
 ///|
@@ -154,6 +178,65 @@ fn can_inline_into_return(expr : Expr) -> Bool {
     CallE(_) => false
     _ => true
   }
+}
+
+///|
+fn can_defer_inline_expr(expr : Expr) -> Bool {
+  match expr {
+    ConstE(_) | VarE(_) | CellE(_) => true
+    IndexE(target, key) =>
+      can_defer_inline_expr(target) && can_defer_inline_expr(key)
+    UnaryE(_, inner) => can_defer_inline_expr(inner)
+    BinaryE(_, lhs, rhs) =>
+      can_defer_inline_expr(lhs) && can_defer_inline_expr(rhs)
+    AndE(lhs, rhs) | OrE(lhs, rhs) =>
+      can_defer_inline_expr(lhs) && can_defer_inline_expr(rhs)
+    _ => false
+  }
+}
+
+///|
+fn rewrite_with_subst(
+  subst : Map[@ssa.Var, Expr],
+  deleted : Map[@ssa.Var, Bool],
+  stmt : Stmt,
+) -> Stmt {
+  let inliner : InlineSubst = { subst, deleted }
+  inliner.visit_Stmt(stmt)
+}
+
+///|
+fn inline_deferred_single_use_binds(
+  body : Block,
+  uses : Map[@ssa.Var, Int],
+) -> (Block, Bool) {
+  let subst : Map[@ssa.Var, Expr] = {}
+  let deleted : Map[@ssa.Var, Bool] = {}
+  let out : Block = []
+  let changed = [false]
+  for stmt in body {
+    match stmt {
+      BindS(value, expr) if uses.get(value).unwrap_or(0) == 1 &&
+        can_defer_inline_expr(expr) => {
+        let stmt = rewrite_with_subst(subst, deleted, @expr.BindS(value, expr))
+        match stmt {
+          BindS(_, expr) => subst[value] = expr
+          _ => panic()
+        }
+        out.push(stmt)
+      }
+      _ => out.push(rewrite_with_subst(subst, deleted, stmt))
+    }
+  }
+  let filtered : Block = []
+  for stmt in out {
+    match stmt {
+      BindS(value, _) if deleted.get(value).unwrap_or(false) =>
+        changed[0] = true
+      _ => filtered.push(stmt)
+    }
+  }
+  (filtered, changed[0])
 }
 
 ///|
@@ -300,7 +383,8 @@ fn simplify_block_once(body : Block) -> (Block, Bool) {
     }
   }
   let (out, locals_changed) = cleanup_unused_empty_locals(out)
-  (out, changed[0] || locals_changed)
+  let (out, deferred_changed) = inline_deferred_single_use_binds(out, uses)
+  (out, changed[0] || locals_changed || deferred_changed)
 }
 
 ///|

@@ -194,3 +194,83 @@ test "simplify_temps aliases loop accumulator cell back to source" {
     ),
   )
 }
+
+///|
+test "simplify_temps inlines deferred single-use aliases across statements" {
+  let manager = value(0)
+  let event = value(1)
+  let report = value(2)
+  let half = value(3)
+  let result = cell(4)
+  inspect(
+    simplify_render([
+      @expr.BindS(manager, @expr.CellE(@ssa.Cell::env())),
+      @expr.BindS(
+        event,
+        @expr.IndexE(
+          @expr.IndexE(
+            @expr.CellE(@ssa.Cell::env()),
+            @expr.ConstE(AsciiString("BATTLE_EVENT", is_valid_identifier=true)),
+          ),
+          @expr.ConstE(AsciiString("BATTLE_END", is_valid_identifier=true)),
+        ),
+      ),
+      @expr.BindS(
+        report,
+        @expr.IndexE(
+          @expr.CellE(@ssa.Cell::env()),
+          @expr.ConstE(AsciiString("combatReport", is_valid_identifier=true)),
+        ),
+      ),
+      @expr.ParallelAssignS([result], [@expr.ConstE(Boolean(false))]),
+      @expr.BindS(
+        half,
+        @expr.IndexE(
+          @expr.CellE(@ssa.Cell::env()),
+          @expr.ConstE(AsciiString("isHalfBattle", is_valid_identifier=true)),
+        ),
+      ),
+      @expr.BindMultiS(
+        [],
+        @expr.CallM(
+          @expr.MethodC(
+            @expr.VarE(manager),
+            "dispatchEvent",
+            [@expr.VarE(event), @expr.VarE(report), @expr.VarE(half)],
+            None,
+          ),
+        ),
+      ),
+    ]),
+    content=(
+      #|c4 = false
+      #|_ENV:dispatchEvent(BATTLE_EVENT.BATTLE_END, combatReport, isHalfBattle)
+    ),
+  )
+}
+
+///|
+test "simplify_temps does not inline deferred aliases into closure body" {
+  let capture = value(0)
+  inspect(
+    simplify_render([
+      @expr.BindS(capture, @expr.CellE(@ssa.Cell::env())),
+      @expr.ReturnS(
+        [
+          @expr.ClosureE({
+            params: [],
+            vararg: false,
+            body: [@expr.ReturnS([@expr.VarE(capture)], None)],
+          }),
+        ],
+        None,
+      ),
+    ]),
+    content=(
+      #|local v0 = _ENV
+      #|return function()
+      #|  return v0
+      #|end
+    ),
+  )
+}
