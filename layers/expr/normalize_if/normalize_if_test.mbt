@@ -246,3 +246,64 @@ test "expr normalize_if folds following return into nested guard chain" {
     ),
   )
 }
+
+///|
+test "expr normalize_if lifts repeated default cell assignment through guards" {
+  let cond1 = value(0)
+  let cond2 = value(1)
+  let cond3 = value(2)
+  let target = cell(3)
+  let default = value(4)
+  let success = value(5)
+  let body : @expr.Program = [
+    @expr.IfS(
+      [
+        (
+          @expr.VarE(cond1),
+          [@expr.ParallelAssignS([target], [@expr.VarE(default)])],
+        ),
+      ],
+      Some([
+        @expr.BindS(value(6), int(6)),
+        @expr.IfS(
+          [
+            (
+              @expr.VarE(cond2),
+              [@expr.ParallelAssignS([target], [@expr.VarE(default)])],
+            ),
+          ],
+          Some([
+            @expr.BindS(value(7), int(7)),
+            @expr.IfS(
+              [
+                (
+                  @expr.VarE(cond3),
+                  [@expr.ParallelAssignS([target], [@expr.VarE(default)])],
+                ),
+              ],
+              Some([@expr.ParallelAssignS([target], [@expr.VarE(success)])]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+    @expr.ReturnS([@expr.CellE(target)], None),
+  ]
+
+  inspect(
+    normalize_render(body),
+    content=(
+      #|c3 = v4
+      #|if not v0 then
+      #|  local v6 = 6
+      #|  if not v1 then
+      #|    local v7 = 7
+      #|    if not v2 then
+      #|      c3 = v5
+      #|    end
+      #|  end
+      #|end
+      #|return c3
+    ),
+  )
+}

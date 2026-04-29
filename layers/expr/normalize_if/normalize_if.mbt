@@ -244,6 +244,132 @@ fn block_is_abrupt_exit(body : @expr.Block) -> Bool {
 }
 
 ///|
+priv struct CellUse {
+  cell : @ssa.Cell
+  found : Array[Bool]
+}
+
+///|
+impl @expr.IterVisitor for CellUse with visit_Expr_CellE(self, cell~) {
+  if cell == self.cell {
+    self.found[0] = true
+  }
+}
+
+///|
+impl @expr.IterVisitor for CellUse with visit_Stmt_LocalS(self, cells~, values~) {
+  ignore(cells)
+  for value in values {
+    self.visit_Expr(value)
+  }
+}
+
+///|
+impl @expr.IterVisitor for CellUse with visit_Stmt_ParallelAssignS(
+  self,
+  cells~,
+  values~,
+) {
+  ignore(cells)
+  for value in values {
+    self.visit_Expr(value)
+  }
+}
+
+///|
+fn block_reads_cell(body : @expr.Block, cell : @ssa.Cell) -> Bool {
+  let found = [false]
+  let visitor : CellUse = { cell, found }
+  visitor.visit_Block(body)
+  found[0]
+}
+
+///|
+fn direct_cell_assign(body : @expr.Block) -> (@ssa.Cell, @expr.Expr)? {
+  match body {
+    [@expr.ParallelAssignS([cell], [expr])] => Some((cell, expr))
+    _ => None
+  }
+}
+
+///|
+fn same_expr(lhs : @expr.Expr, rhs : @expr.Expr) -> Bool {
+  match (lhs, rhs) {
+    (ConstE(lhs), ConstE(rhs)) => lhs == rhs
+    (VarE(lhs), VarE(rhs)) => lhs == rhs
+    (CellE(lhs), CellE(rhs)) => lhs == rhs
+    _ => false
+  }
+}
+
+///|
+fn is_default_cell_assign(
+  body : @expr.Block,
+  cell : @ssa.Cell,
+  expr : @expr.Expr,
+) -> Bool {
+  match direct_cell_assign(body) {
+    Some((target, value)) => target == cell && same_expr(value, expr)
+    None => false
+  }
+}
+
+///|
+fn rewrite_default_assign_guards(
+  cell : @ssa.Cell,
+  expr : @expr.Expr,
+  body : @expr.Block,
+) -> @expr.Block {
+  let out : @expr.Block = []
+  for stmt in body {
+    match stmt {
+      @expr.ParallelAssignS([target], [value]) =>
+        if !(target == cell && same_expr(value, expr)) {
+          out.push(stmt)
+        }
+      @expr.IfS([(cond, then_body)], Some(else_body)) =>
+        if is_default_cell_assign(then_body, cell, expr) &&
+          !else_body.is_empty() &&
+          !block_is_abrupt_exit(else_body) &&
+          !block_reads_cell(else_body, cell) {
+          out.push(
+            @expr.IfS(
+              [
+                (
+                  invert_cond(cond),
+                  rewrite_default_assign_guards(cell, expr, else_body),
+                ),
+              ],
+              None,
+            ),
+          )
+        } else if is_default_cell_assign(else_body, cell, expr) &&
+          !then_body.is_empty() &&
+          !block_is_abrupt_exit(then_body) &&
+          !block_reads_cell(then_body, cell) {
+          out.push(
+            @expr.IfS(
+              [(cond, rewrite_default_assign_guards(cell, expr, then_body))],
+              None,
+            ),
+          )
+        } else {
+          out.push(stmt)
+        }
+      @expr.IfS([(cond, then_body)], None) =>
+        out.push(
+          @expr.IfS(
+            [(cond, rewrite_default_assign_guards(cell, expr, then_body))],
+            None,
+          ),
+        )
+      _ => out.push(stmt)
+    }
+  }
+  out
+}
+
+///|
 fn normalize_branches(
   branches : Array[(@expr.Expr, @expr.Block)],
 ) -> Array[(@expr.Expr, @expr.Block)] {
@@ -254,6 +380,53 @@ fn normalize_branches(
 }
 
 ///|
+fn lift_default_cell_assign(
+  cond : @expr.Expr,
+  then_body : @expr.Block,
+  else_body : @expr.Block,
+) -> Array[@expr.Stmt]? {
+  match direct_cell_assign(then_body) {
+    Some((cell, expr)) =>
+      if !else_body.is_empty() &&
+        !block_is_abrupt_exit(else_body) &&
+        !block_reads_cell(else_body, cell) {
+        Some([
+          @expr.ParallelAssignS([cell], [expr]),
+          @expr.IfS(
+            [
+              (
+                invert_cond(cond),
+                rewrite_default_assign_guards(cell, expr, else_body),
+              ),
+            ],
+            None,
+          ),
+        ])
+      } else {
+        None
+      }
+    None =>
+      match direct_cell_assign(else_body) {
+        Some((cell, expr)) =>
+          if !then_body.is_empty() &&
+            !block_is_abrupt_exit(then_body) &&
+            !block_reads_cell(then_body, cell) {
+            Some([
+              @expr.ParallelAssignS([cell], [expr]),
+              @expr.IfS(
+                [(cond, rewrite_default_assign_guards(cell, expr, then_body))],
+                None,
+              ),
+            ])
+          } else {
+            None
+          }
+        None => None
+      }
+  }
+}
+
+///|
 fn normalize_if_stmt(
   branches : Array[(@expr.Expr, @expr.Block)],
   else_body : @expr.Block?,
@@ -261,22 +434,11 @@ fn normalize_if_stmt(
   let branches = normalize_branches(branches)
   let else_body = else_body.map(fn(body) { normalize_block(body) })
   match (branches, else_body) {
-    ([(cond, [])], Some(body)) if !body.is_empty() =>
-      [@expr.IfS([(invert_cond(cond), body)], None)]
-    ([(cond, then_body)], Some([])) => [@expr.IfS([(cond, then_body)], None)]
-    ([(cond, then_body)], Some(else_body)) if is_direct_return(then_body) &&
-      is_direct_return(else_body) => {
-      let inverted = invert_cond(cond)
-      if cond_cost(inverted) < cond_cost(cond) {
-        [@expr.IfS([(inverted, else_body)], None), ..then_body]
-      } else {
-        [@expr.IfS([(cond, then_body)], None), ..else_body]
+    ([(cond, then_body)], Some(else_body)) =>
+      match lift_default_cell_assign(cond, then_body, else_body) {
+        Some(stmts) => stmts
+        None => normalize_if_stmt_fallback(cond, then_body, else_body)
       }
-    }
-    ([(cond, then_body)], Some(else_body)) if is_direct_abrupt(then_body) =>
-      [@expr.IfS([(cond, then_body)], None), ..else_body]
-    ([(cond, then_body)], Some(else_body)) if is_direct_abrupt(else_body) =>
-      [@expr.IfS([(invert_cond(cond), else_body)], None), ..then_body]
     _ =>
       [
         @expr.IfS(
@@ -287,6 +449,34 @@ fn normalize_if_stmt(
           },
         ),
       ]
+  }
+}
+
+///|
+fn normalize_if_stmt_fallback(
+  cond : @expr.Expr,
+  then_body : @expr.Block,
+  else_body : @expr.Block,
+) -> Array[@expr.Stmt] {
+  if then_body.is_empty() && !else_body.is_empty() {
+    return [@expr.IfS([(invert_cond(cond), else_body)], None)]
+  }
+  if else_body.is_empty() {
+    return [@expr.IfS([(cond, then_body)], None)]
+  }
+  if is_direct_return(then_body) && is_direct_return(else_body) {
+    let inverted = invert_cond(cond)
+    if cond_cost(inverted) < cond_cost(cond) {
+      [@expr.IfS([(inverted, else_body)], None), ..then_body]
+    } else {
+      [@expr.IfS([(cond, then_body)], None), ..else_body]
+    }
+  } else if is_direct_abrupt(then_body) {
+    [@expr.IfS([(cond, then_body)], None), ..else_body]
+  } else if is_direct_abrupt(else_body) {
+    [@expr.IfS([(invert_cond(cond), else_body)], None), ..then_body]
+  } else {
+    [@expr.IfS([(cond, then_body)], Some(else_body))]
   }
 }
 
