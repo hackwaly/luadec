@@ -193,6 +193,55 @@ test "recover folds or condition with negated rhs branch" {
 }
 
 ///|
+test "recover folds or condition with matching target args" {
+  let id_gen = @ssa.IdGen()
+  let entry = fresh_label(id_gen)
+  let rhs_label = fresh_label(id_gen)
+  let join_label = fresh_label(id_gen)
+  let lhs = fresh_var(id_gen)
+  let rhs = fresh_var(id_gen)
+  let arg = fresh_var(id_gen)
+  let fallback = fresh_var(id_gen)
+  let result = fresh_var(id_gen)
+  let join = { ..join_label, params: [result] }
+  let shared = @ssa.Target(join, [@ssa.VarE(arg)])
+  let fallback_target = @ssa.Target(join, [@ssa.VarE(fallback)])
+
+  let mut blocks : SortedMap[@ssa.Label, @ssa.Block] = SortedMap::new()
+  blocks = blocks.add(entry, {
+    stmts: [],
+    term: @ssa.CondT(@ssa.VarE(lhs), shared, @ssa.Target(rhs_label, [])),
+  })
+  blocks = blocks.add(rhs_label, {
+    stmts: [],
+    term: @ssa.CondT(@ssa.VarE(rhs), shared, fallback_target),
+  })
+  blocks = blocks.add(join, {
+    stmts: [],
+    term: @ssa.ReturnT([@ssa.VarE(result)], None),
+  })
+
+  let recovered = recover_boolean(program_with(id_gen, blocks, entry))
+  let func = recovered.funcs[0]
+  guard func.blocks.get(rhs_label) is None else { panic() }
+  match func.blocks[entry].term {
+    @ssa.CondT(
+      @ssa.OrE(@ssa.VarE(actual_lhs), @ssa.VarE(actual_rhs)),
+      @ssa.Target(actual_join, [@ssa.VarE(actual_arg)]),
+      @ssa.Target(actual_fallback_join, [@ssa.VarE(actual_fallback)])
+    ) => {
+      guard actual_lhs == lhs else { panic() }
+      guard actual_rhs == rhs else { panic() }
+      guard actual_join == join else { panic() }
+      guard actual_arg == arg else { panic() }
+      guard actual_fallback_join == join else { panic() }
+      guard actual_fallback == fallback else { panic() }
+    }
+    _ => panic()
+  }
+}
+
+///|
 test "recover folds value branch into and expression" {
   let id_gen = @ssa.IdGen()
   let entry = fresh_label(id_gen)

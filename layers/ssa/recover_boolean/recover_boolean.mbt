@@ -5,10 +5,28 @@ using @immut/sorted_map {type SortedMap}
 using @immut/sorted_set {type SortedSet}
 
 ///|
-fn same_empty_target(lhs : @ssa.Target, rhs : @ssa.Target) -> Bool {
+fn expr_equal(lhs : @ssa.Expr, rhs : @ssa.Expr) -> Bool {
+  match (lhs, rhs) {
+    (ConstE(lhs), ConstE(rhs)) => lhs == rhs
+    (VarE(lhs), VarE(rhs)) => lhs == rhs
+    (CellE(lhs), CellE(rhs)) => lhs == rhs
+    _ => false
+  }
+}
+
+///|
+fn same_target(lhs : @ssa.Target, rhs : @ssa.Target) -> Bool {
   let @ssa.Target(lhs_label, lhs_args) = lhs
   let @ssa.Target(rhs_label, rhs_args) = rhs
-  lhs_label == rhs_label && lhs_args.length() == 0 && rhs_args.length() == 0
+  guard lhs_label == rhs_label && lhs_args.length() == rhs_args.length() else {
+    return false
+  }
+  for i in 0..<lhs_args.length() {
+    if !expr_equal(lhs_args[i], rhs_args[i]) {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -252,7 +270,7 @@ fn rewrite_cond_and_or(
       .unwrap_or(0) ==
       1 =>
       match get_cond_block(blocks, rhs_label) {
-        Some((rhs, true_target, rhs_false)) if same_empty_target(
+        Some((rhs, true_target, rhs_false)) if same_target(
             rhs_false, false_target,
           ) =>
           Some(
@@ -268,7 +286,7 @@ fn rewrite_cond_and_or(
               SortedSet::new().add(rhs_label),
             ),
           )
-        Some((rhs, rhs_true, false_target2)) if same_empty_target(
+        Some((rhs, rhs_true, false_target2)) if same_target(
             rhs_true, false_target,
           ) =>
           Some(
@@ -291,7 +309,7 @@ fn rewrite_cond_and_or(
       .unwrap_or(0) ==
       1 =>
       match get_cond_block(blocks, rhs_label) {
-        Some((rhs, rhs_true, false_target)) if same_empty_target(
+        Some((rhs, rhs_true, false_target)) if same_target(
             rhs_true, true_target,
           ) =>
           Some(
@@ -307,7 +325,7 @@ fn rewrite_cond_and_or(
               SortedSet::new().add(rhs_label),
             ),
           )
-        Some((rhs, true_target2, rhs_false)) if same_empty_target(
+        Some((rhs, true_target2, rhs_false)) if same_target(
             rhs_false, true_target,
           ) =>
           Some(
