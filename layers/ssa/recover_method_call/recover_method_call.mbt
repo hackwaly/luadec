@@ -19,14 +19,19 @@ pub fn analyze_use_count(prog : @ssa.Program) -> Map[@ssa.Var, Int] {
 }
 
 ///|
-priv struct MethodCallRecoverVisitor {
+priv struct MethodLikeCollector {
   use_count : Map[@ssa.Var, Int]
+  method_like : Map[@ssa.Var, (@ssa.Var, String)]
+}
+
+///|
+priv struct MethodCallRewriter {
   method_like : Map[@ssa.Var, (@ssa.Var, String)]
   to_drop : Set[@ssa.Var]
 }
 
 ///|
-impl @ssa.MapVisitor for MethodCallRecoverVisitor with visit_Stmt_BindS(
+impl @ssa.IterVisitor for MethodLikeCollector with visit_Stmt_BindS(
   self,
   value~,
   expr~,
@@ -38,11 +43,11 @@ impl @ssa.MapVisitor for MethodCallRecoverVisitor with visit_Stmt_BindS(
       }
     _ => ()
   }
-  self.base().visit_Stmt_BindS(value~, expr~)
+  self.visit_Expr(expr)
 }
 
 ///|
-impl @ssa.MapVisitor for MethodCallRecoverVisitor with visit_Call(self, call) {
+impl @ssa.MapVisitor for MethodCallRewriter with visit_Call(self, call) {
   match call {
     @ssa.NormalC(
       VarE(method_candidate),
@@ -61,7 +66,7 @@ impl @ssa.MapVisitor for MethodCallRecoverVisitor with visit_Call(self, call) {
 }
 
 ///|
-impl @ssa.MapVisitor for MethodCallRecoverVisitor with visit_Block(self, block) {
+impl @ssa.MapVisitor for MethodCallRewriter with visit_Block(self, block) {
   let block = self.base().visit_Block(block)
   let block2 = {
     ..block,
@@ -75,10 +80,20 @@ impl @ssa.MapVisitor for MethodCallRecoverVisitor with visit_Block(self, block) 
 ///|
 pub fn recover_method_call(program : @ssa.Program) -> @ssa.Program {
   let use_count = analyze_use_count(program)
-  let visitor = MethodCallRecoverVisitor::{
-    use_count,
-    method_like: {},
+  let collector = MethodLikeCollector::{ use_count, method_like: {} }
+  collector.visit_Program(program)
+  let rewriter = MethodCallRewriter::{
+    method_like: collector.method_like,
     to_drop: Set::new(),
   }
-  visitor.visit_Program(program)
+  let program = rewriter.visit_Program(program)
+  if rewriter.to_drop.is_empty() {
+    program
+  } else {
+    let cleanup = MethodCallRewriter::{
+      method_like: {},
+      to_drop: rewriter.to_drop,
+    }
+    cleanup.visit_Program(program)
+  }
 }
