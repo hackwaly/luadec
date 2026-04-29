@@ -91,4 +91,10 @@ async fn pipeline(
     filter~,
     filename="\{inspect_dir}/600_expr.lua",
   )
+  |> @expr/normalize_if.normalize_if
+  |> inspect(
+    @expr/render.render,
+    filter~,
+    filename="\{inspect_dir}/610_expr_normalize_if.lua",
+  )
 }

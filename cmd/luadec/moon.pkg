@@ -21,6 +21,7 @@ import {
   "hackwaly/luadec/layers/structured/render" @structured/render,
   "hackwaly/luadec/layers/expr" @expr,
   "hackwaly/luadec/layers/expr/from_structured" @expr/from_structured,
+  "hackwaly/luadec/layers/expr/normalize_if" @expr/normalize_if,
   "hackwaly/luadec/layers/expr/render" @expr/render,
 }
 
