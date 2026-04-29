@@ -67,14 +67,11 @@ test "prune_cont_params removes unused nested if continuation params" {
     prune_render(body),
     content=(
       #|if v0 {
-      #|  if v0 {
+      #|  branch v0 {
       #|    local v4 = 10
-      #|    goto B11
+      #|    goto B10
       #|  } else {
       #|    local v5 = 20
-      #|    goto B11
-      #|  }
-      #|  cont B11 {
       #|    goto B10
       #|  }
       #|} else {
@@ -83,6 +80,34 @@ test "prune_cont_params removes unused nested if continuation params" {
       #|cont B10 {
       #|  local v3 = 4
       #|  return v3
+      #|}
+    ),
+  )
+}
+
+///|
+test "prune_cont_params redirects identity forwarding continuation params" {
+  let cond = value(0)
+  let value_a = value(1)
+  let value_b = value(2)
+  let forwarded = value(3)
+  let live = value(4)
+  let outer = label(10, params=[live])
+  let inner = label(11, params=[forwarded])
+  let body = @structured.If(
+    VarE(cond),
+    Goto(Target(inner, [VarE(value_a)])),
+    Some(Goto(Target(inner, [VarE(value_b)]))),
+    (inner, Goto(Target(outer, [VarE(forwarded)]))),
+  )
+
+  inspect(
+    prune_render(body),
+    content=(
+      #|branch v0 {
+      #|  goto B10(v1)
+      #|} else {
+      #|  goto B10(v2)
       #|}
     ),
   )

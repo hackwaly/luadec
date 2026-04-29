@@ -53,12 +53,63 @@ impl @structured.MapVisitor for DropContParams with visit_Region_Goto(
 }
 
 ///|
+priv struct RedirectGoto {
+  from : @ssa.Label
+  to : @ssa.Label
+}
+
+///|
+impl @structured.MapVisitor for RedirectGoto with visit_Region_Goto(
+  self,
+  target~,
+) {
+  let Target(label, args) = target
+  if label == self.from {
+    Goto(Target(self.to, args.map(fn(arg) { self.visit_Expr(arg) })))
+  } else {
+    Goto(self.visit_Target(target))
+  }
+}
+
+///|
+fn identity_forward_target(label : @ssa.Label, region : Region) -> @ssa.Label? {
+  match region {
+    Goto(Target(target_label, args)) => {
+      guard args.length() == label.params.length() else { return None }
+      for i in 0..<args.length() {
+        match args[i] {
+          VarE(value) if value == label.params[i] => ()
+          _ => return None
+        }
+      }
+      Some(target_label)
+    }
+    _ => None
+  }
+}
+
+///|
+fn redirect_sources(
+  sources : Array[Region],
+  from : @ssa.Label,
+  to : @ssa.Label,
+) -> Array[Region] {
+  let redirect : RedirectGoto = { from, to }
+  sources.map(fn(region) { redirect.visit_Region(region) })
+}
+
+///|
 fn prune_cont(
   sources : Array[Region],
   cont : (@ssa.Label, Region),
-) -> (Array[Region], (@ssa.Label, Region)) {
+) -> (Array[Region], (@ssa.Label, Region)?) {
   let (old_label, cont_region) = cont
-  guard old_label.params.length() > 0 else { return (sources, cont) }
+  match identity_forward_target(old_label, cont_region) {
+    Some(target_label) =>
+      return (redirect_sources(sources, old_label, target_label), None)
+    None => ()
+  }
+  guard old_label.params.length() > 0 else { return (sources, Some(cont)) }
   let keep_indices : Array[Int] = []
   let kept_params : Array[@ssa.Var] = []
   for i in 0..<old_label.params.length() {
@@ -69,7 +120,7 @@ fn prune_cont(
     }
   }
   guard kept_params.length() < old_label.params.length() else {
-    return (sources, cont)
+    return (sources, Some(cont))
   }
   let new_label = { ..old_label, params: kept_params }
   let dropper : DropContParams = { old_label, new_label, keep_indices }
@@ -77,7 +128,7 @@ fn prune_cont(
     prune_region(dropper.visit_Region(region))
   })
   let new_cont_region = prune_region(dropper.visit_Region(cont_region))
-  (new_sources, (new_label, new_cont_region))
+  (new_sources, Some((new_label, new_cont_region)))
 }
 
 ///|
@@ -97,11 +148,17 @@ fn prune_region(region : Region) -> Region {
             [then_region, else_region],
             (cont.0, cont_region),
           )
-          If(cond, sources[0], Some(sources[1]), cont)
+          match cont {
+            Some(cont) => If(cond, sources[0], Some(sources[1]), cont)
+            None => Branch(cond, sources[0], sources[1])
+          }
         }
         None => {
           let (sources, cont) = prune_cont([then_region], (cont.0, cont_region))
-          If(cond, sources[0], None, cont)
+          match cont {
+            Some(cont) => If(cond, sources[0], None, cont)
+            None => sources[0]
+          }
         }
       }
     }
@@ -111,7 +168,7 @@ fn prune_region(region : Region) -> Region {
         Some((exit_label, exit_region)) => {
           let exit_region = prune_region(exit_region)
           let (sources, cont) = prune_cont([body], (exit_label, exit_region))
-          Loop(header, init_args, shape, sources[0], Some(cont))
+          Loop(header, init_args, shape, sources[0], cont)
         }
         None => Loop(header, init_args, shape, body, None)
       }
