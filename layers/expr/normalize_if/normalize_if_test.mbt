@@ -122,3 +122,55 @@ test "expr normalize_if pulls returning else into inverted guard" {
     ),
   )
 }
+
+///|
+test "expr normalize_if turns break branch with else into guard" {
+  let cond = value(0)
+  let target = cell(1)
+  let body : @expr.Program = [
+    @expr.WhileS(@expr.ConstE(Boolean(true)), [
+      @expr.IfS(
+        [(@expr.VarE(cond), [@expr.BreakS])],
+        Some([@expr.ParallelAssignS([target], [int(1)])]),
+      ),
+    ]),
+  ]
+
+  inspect(
+    normalize_render(body),
+    content=(
+      #|while true do
+      #|  if v0 then
+      #|    break
+      #|  end
+      #|  c1 = 1
+      #|end
+    ),
+  )
+}
+
+///|
+test "expr normalize_if turns break else into inverted guard" {
+  let cond = value(0)
+  let target = cell(1)
+  let body : @expr.Program = [
+    @expr.WhileS(@expr.ConstE(Boolean(true)), [
+      @expr.IfS(
+        [(@expr.VarE(cond), [@expr.ParallelAssignS([target], [int(1)])])],
+        Some([@expr.BreakS]),
+      ),
+    ]),
+  ]
+
+  inspect(
+    normalize_render(body),
+    content=(
+      #|while true do
+      #|  if not v0 then
+      #|    break
+      #|  end
+      #|  c1 = 1
+      #|end
+    ),
+  )
+}

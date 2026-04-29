@@ -203,6 +203,14 @@ fn is_direct_return(body : @expr.Block) -> Bool {
 }
 
 ///|
+fn is_direct_abrupt(body : @expr.Block) -> Bool {
+  match body {
+    [@expr.ReturnS(_, _) | @expr.BreakS] => true
+    _ => false
+  }
+}
+
+///|
 fn stmt_is_abrupt_exit(stmt : @expr.Stmt) -> Bool {
   match stmt {
     ReturnS(_, _) | BreakS => true
@@ -265,9 +273,9 @@ fn normalize_if_stmt(
         [@expr.IfS([(cond, then_body)], None), ..else_body]
       }
     }
-    ([(cond, then_body)], Some(else_body)) if is_direct_return(then_body) =>
+    ([(cond, then_body)], Some(else_body)) if is_direct_abrupt(then_body) =>
       [@expr.IfS([(cond, then_body)], None), ..else_body]
-    ([(cond, then_body)], Some(else_body)) if is_direct_return(else_body) =>
+    ([(cond, then_body)], Some(else_body)) if is_direct_abrupt(else_body) =>
       [@expr.IfS([(invert_cond(cond), else_body)], None), ..then_body]
     _ =>
       [
