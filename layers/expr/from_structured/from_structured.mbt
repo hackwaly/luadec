@@ -380,6 +380,67 @@ fn lower_goto(ctx : LowerCtx, target : @ssa.Target) -> @expr.Block {
 }
 
 ///|
+fn region_targets_label(
+  region : @structured.Region,
+  label : @ssa.Label,
+) -> Bool {
+  match region {
+    Linear(_, next) => region_targets_label(next, label)
+    Return(_, _) => false
+    Branch(_, then_region, else_region) =>
+      region_targets_label(then_region, label) ||
+      region_targets_label(else_region, label)
+    If(_, then_region, else_region, cont) => {
+      if region_targets_label(then_region, label) {
+        return true
+      }
+      match else_region {
+        Some(region) => if region_targets_label(region, label) { return true }
+        None => ()
+      }
+      let (cont_label, cont_region) = cont
+      cont_label == label || region_targets_label(cont_region, label)
+    }
+    Loop(header, _, _, body, exit_region) => {
+      if header == label || region_targets_label(body, label) {
+        return true
+      }
+      match exit_region {
+        Some((exit_label, region)) =>
+          exit_label == label || region_targets_label(region, label)
+        None => false
+      }
+    }
+    Goto(@ssa.Target(target, _)) => target == label
+  }
+}
+
+///|
+fn region_is_abrupt_exit(region : @structured.Region) -> Bool {
+  match region {
+    Linear(_, next) => region_is_abrupt_exit(next)
+    Return(_, _) => true
+    Branch(_, then_region, else_region) =>
+      region_is_abrupt_exit(then_region) && region_is_abrupt_exit(else_region)
+    If(_, then_region, else_region, cont) => {
+      if !region_is_abrupt_exit(then_region) {
+        return false
+      }
+      match else_region {
+        Some(region) => if !region_is_abrupt_exit(region) { return false }
+        None => return false
+      }
+      let (_, cont_region) = cont
+      region_is_abrupt_exit(cont_region)
+    }
+    Loop(_, _, _, body, None) => region_is_abrupt_exit(body)
+    Loop(_, _, _, body, Some((_, exit_region))) =>
+      region_is_abrupt_exit(body) && region_is_abrupt_exit(exit_region)
+    Goto(_) => false
+  }
+}
+
+///|
 fn lower_unknown_loop(
   ctx : LowerCtx,
   header : @ssa.Label,
@@ -571,6 +632,24 @@ fn lower_region_tail(
       let out : @expr.Block = []
       let (label, cont_region) = cont
       let branch_ctx = with_transfer(ctx, label, MergeK)
+      if else_region is None &&
+        label.params.is_empty() &&
+        region_is_abrupt_exit(cont_region) &&
+        !region_targets_label(then_region, label) {
+        out.push(
+          @expr.IfS(
+            [
+              (
+                @expr.UnaryE(Not, lower_expr(ctx, cond)),
+                lower_region_tail(ctx, cont_region, tail_empty_return=false),
+              ),
+            ],
+            None,
+          ),
+        )
+        append_all(out, lower_region(branch_ctx, then_region))
+        return out
+      }
       match local_stmt_for_label(ctx, label) {
         Some(stmt) => out.push(stmt)
         None => ()

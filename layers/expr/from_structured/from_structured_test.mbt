@@ -211,6 +211,55 @@ test "from_structured avoids empty return in tail continuation" {
 }
 
 ///|
+test "from_structured lowers goto outer join with abrupt local continuation as guard" {
+  let id_gen = @ssa.IdGen::IdGen()
+  let outer_cond = fresh_var(id_gen)
+  let inner_cond = fresh_var(id_gen)
+  let inner_cont = fresh_label(id_gen, [])
+  let outer_cont = fresh_label(id_gen, [])
+  let body = @structured.If(
+    @ssa.VarE(outer_cond),
+    @structured.If(
+      @ssa.VarE(inner_cond),
+      @structured.Goto(@ssa.Target(outer_cont, [])),
+      None,
+      (inner_cont, @structured.Return([], None)),
+    ),
+    None,
+    (outer_cont, @structured.Return([int_expr(1)], None)),
+  )
+
+  match from_program(program_with(id_gen, body)) {
+    [
+      @expr.IfS(
+        [
+          (
+            @expr.VarE(actual_outer),
+            [
+              @expr.IfS(
+                [
+                  (
+                    @expr.UnaryE(Not, @expr.VarE(actual_inner)),
+                    [@expr.ReturnS([], None)],
+                  ),
+                ],
+                None
+              ),
+            ],
+          ),
+        ],
+        None
+      ),
+      @expr.ReturnS([@expr.ConstE(Integer(1L))], None),
+    ] => {
+      guard actual_outer == outer_cond else { panic() }
+      guard actual_inner == inner_cond else { panic() }
+    }
+    _ => panic()
+  }
+}
+
+///|
 test "from_structured avoids empty return in loop exit tail continuation" {
   let id_gen = @ssa.IdGen::IdGen()
   let header = fresh_label(id_gen, [])
