@@ -127,6 +127,12 @@ async fn pipeline(
     filter~,
     filename="\{inspect_dir}/610_expr_normalize_if.lua",
   )
+  |> @expr/merge_local_assign.merge_local_assign
+  |> inspect(
+    @expr/render.render,
+    filter~,
+    filename="\{inspect_dir}/615_expr_merge_local_assign.lua",
+  )
   |> @expr/drop_tail_return.drop_tail_return
   |> inspect(
     @expr/render.render,

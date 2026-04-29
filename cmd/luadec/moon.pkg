@@ -27,6 +27,7 @@ import {
   "hackwaly/luadec/layers/expr/fold_table_init" @expr/fold_table_init,
   "hackwaly/luadec/layers/expr/normalize_if_chain" @expr/normalize_if_chain,
   "hackwaly/luadec/layers/expr/normalize_if" @expr/normalize_if,
+  "hackwaly/luadec/layers/expr/merge_local_assign" @expr/merge_local_assign,
   "hackwaly/luadec/layers/expr/drop_tail_return" @expr/drop_tail_return,
   "hackwaly/luadec/layers/expr/render" @expr/render,
 }
