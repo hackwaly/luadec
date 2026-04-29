@@ -91,6 +91,12 @@ async fn pipeline(
     filter~,
     filename="\{inspect_dir}/520_structured_pruned.lua",
   )
+  |> @structured/hoist_common_transfers.hoist_common_transfers
+  |> inspect(
+    @structured/render.render,
+    filter~,
+    filename="\{inspect_dir}/530_structured_hoisted.lua",
+  )
   |> @expr/from_structured.from_program
   |> inspect(
     @expr/render.render,
