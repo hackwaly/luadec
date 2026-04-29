@@ -340,3 +340,47 @@ test "expr normalize_if pulls leading return branch out of elseif chain" {
     ),
   )
 }
+
+///|
+test "expr normalize_if inverts nested return else into guards" {
+  let first = value(0)
+  let second = value(1)
+  let body : @expr.Program = [
+    @expr.IfS(
+      [
+        (
+          @expr.VarE(first),
+          [
+            @expr.IfS(
+              [
+                (
+                  @expr.VarE(second),
+                  [
+                    @expr.BindS(value(2), int(2)),
+                    @expr.ReturnS([bool(true)], None),
+                  ],
+                ),
+              ],
+              Some([@expr.ReturnS([bool(false)], None)]),
+            ),
+          ],
+        ),
+      ],
+      Some([@expr.ReturnS([bool(false)], None)]),
+    ),
+  ]
+
+  inspect(
+    normalize_render(body),
+    content=(
+      #|if not v0 then
+      #|  return false
+      #|end
+      #|if not v1 then
+      #|  return false
+      #|end
+      #|local v2 = 2
+      #|return true
+    ),
+  )
+}

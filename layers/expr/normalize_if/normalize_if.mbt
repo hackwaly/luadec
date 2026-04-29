@@ -477,6 +477,10 @@ fn normalize_if_stmt_fallback(
     } else {
       [@expr.IfS([(cond, then_body)], None), ..else_body]
     }
+  } else if !is_direct_return(then_body) &&
+    block_is_abrupt_exit(then_body) &&
+    is_direct_return(else_body) {
+    [@expr.IfS([(invert_cond(cond), else_body)], None), ..then_body]
   } else if block_is_abrupt_exit(then_body) {
     [@expr.IfS([(cond, then_body)], None), ..else_body]
   } else if block_is_abrupt_exit(else_body) {
