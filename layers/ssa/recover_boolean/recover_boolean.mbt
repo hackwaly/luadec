@@ -30,6 +30,19 @@ fn same_target(lhs : @ssa.Target, rhs : @ssa.Target) -> Bool {
 }
 
 ///|
+fn invert_binary_op(op : @ssa.BinaryOp) -> @ssa.BinaryOp? {
+  match op {
+    Eq => Some(Neq)
+    Neq => Some(Eq)
+    Lt => Some(Geq)
+    Gt => Some(Leq)
+    Leq => Some(Gt)
+    Geq => Some(Lt)
+    _ => None
+  }
+}
+
+///|
 fn target_is_empty_return(
   blocks : Map[@ssa.Label, @ssa.Block],
   target : @ssa.Target,
@@ -207,6 +220,42 @@ fn boolean_expr_for_targets(
 }
 
 ///|
+fn invert_condition_expr(expr : @ssa.Expr) -> @ssa.Expr {
+  match expr {
+    @ssa.UnaryE(Not, inner) => inner
+    @ssa.BinaryE(op, lhs, rhs) =>
+      match invert_binary_op(op) {
+        Some(op) => @ssa.BinaryE(op, lhs, rhs)
+        None => @ssa.UnaryE(Not, expr)
+      }
+    @ssa.AndE(lhs, rhs) =>
+      @ssa.OrE(invert_condition_expr(lhs), invert_condition_expr(rhs))
+    @ssa.OrE(lhs, rhs) =>
+      @ssa.AndE(invert_condition_expr(lhs), invert_condition_expr(rhs))
+    _ => @ssa.UnaryE(Not, expr)
+  }
+}
+
+///|
+fn truthy_expr_when_cond_false(
+  cond : @ssa.Expr,
+  false_arg : @ssa.Expr,
+) -> @ssa.Expr? {
+  match cond {
+    @ssa.OrE(lhs, @ssa.UnaryE(Not, rhs)) if expr_equal(rhs, false_arg) =>
+      Some(
+        normalize_bool_expr(@ssa.AndE(invert_condition_expr(lhs), false_arg)),
+      )
+    @ssa.OrE(@ssa.UnaryE(Not, lhs), rhs) if expr_equal(lhs, false_arg) =>
+      Some(
+        normalize_bool_expr(@ssa.AndE(invert_condition_expr(rhs), false_arg)),
+      )
+    @ssa.UnaryE(Not, inner) if expr_equal(inner, false_arg) => Some(false_arg)
+    _ => None
+  }
+}
+
+///|
 fn value_expr_for_targets(
   cond : @ssa.Expr,
   true_arg : @ssa.Expr,
@@ -215,12 +264,17 @@ fn value_expr_for_targets(
   match boolean_expr_for_targets(cond, true_arg, false_arg) {
     Some(expr) => Some(expr)
     None =>
-      match (cond, true_arg, false_arg) {
-        (@ssa.VarE(lhs), rhs, @ssa.VarE(lhs2)) if lhs == lhs2 =>
-          Some(normalize_bool_expr(@ssa.AndE(@ssa.VarE(lhs), rhs)))
-        (@ssa.VarE(lhs), @ssa.VarE(lhs2), rhs) if lhs == lhs2 =>
-          Some(normalize_bool_expr(@ssa.OrE(@ssa.VarE(lhs), rhs)))
-        _ => None
+      match truthy_expr_when_cond_false(cond, false_arg) {
+        Some(false_value) =>
+          Some(normalize_bool_expr(@ssa.OrE(false_value, true_arg)))
+        None =>
+          match (cond, true_arg, false_arg) {
+            (@ssa.VarE(lhs), rhs, @ssa.VarE(lhs2)) if lhs == lhs2 =>
+              Some(normalize_bool_expr(@ssa.AndE(@ssa.VarE(lhs), rhs)))
+            (@ssa.VarE(lhs), @ssa.VarE(lhs2), rhs) if lhs == lhs2 =>
+              Some(normalize_bool_expr(@ssa.OrE(@ssa.VarE(lhs), rhs)))
+            _ => None
+          }
       }
   }
 }

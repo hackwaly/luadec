@@ -407,6 +407,68 @@ test "recover folds expression fallback branch into or expression" {
 }
 
 ///|
+test "recover folds truthy else value selected by negated condition into or expression" {
+  let id_gen = @ssa.IdGen()
+  let entry = fresh_label(id_gen)
+  let join = fresh_label(id_gen)
+  let side = fresh_var(id_gen)
+  let teammate = fresh_var(id_gen)
+  let fallback = fresh_var(id_gen)
+  let default = fresh_var(id_gen)
+  let result = fresh_var(id_gen)
+  let join = { ..join, params: [result] }
+  let cond = @ssa.OrE(
+    @ssa.BinaryE(Neq, @ssa.VarE(side), @ssa.VarE(teammate)),
+    @ssa.UnaryE(Not, @ssa.VarE(fallback)),
+  )
+
+  let mut blocks : SortedMap[@ssa.Label, @ssa.Block] = SortedMap::new()
+  blocks = blocks.add(entry, {
+    stmts: [],
+    term: @ssa.CondT(
+      cond,
+      @ssa.Target(join, [@ssa.VarE(default)]),
+      @ssa.Target(join, [@ssa.VarE(fallback)]),
+    ),
+  })
+  blocks = blocks.add(join, {
+    stmts: [],
+    term: @ssa.ReturnT([@ssa.VarE(result)], None),
+  })
+
+  let recovered = recover_boolean(program_with(id_gen, blocks, entry))
+  match recovered.funcs[0].blocks[entry] {
+    {
+      stmts: [
+        @ssa.BindS(
+          recovered_value,
+          @ssa.OrE(
+            @ssa.AndE(
+              @ssa.BinaryE(
+                Eq,
+                @ssa.VarE(actual_side),
+                @ssa.VarE(actual_teammate)
+              ),
+              @ssa.VarE(actual_fallback)
+            ),
+            @ssa.VarE(actual_default)
+          )
+        ),
+      ],
+      term: @ssa.JumpT(@ssa.Target(actual_join, [@ssa.VarE(actual_arg)])),
+    } => {
+      guard actual_side == side else { panic() }
+      guard actual_teammate == teammate else { panic() }
+      guard actual_fallback == fallback else { panic() }
+      guard actual_default == default else { panic() }
+      guard actual_join == join else { panic() }
+      guard actual_arg == recovered_value else { panic() }
+    }
+    _ => panic()
+  }
+}
+
+///|
 test "recover folds boolean bridge values into condition" {
   let id_gen = @ssa.IdGen()
   let entry = fresh_label(id_gen)
