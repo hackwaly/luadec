@@ -109,6 +109,12 @@ async fn pipeline(
     filter~,
     filename="\{inspect_dir}/605_expr_simplify_temps.lua",
   )
+  |> @expr/normalize_if_chain.normalize_if_chain
+  |> inspect(
+    @expr/render.render,
+    filter~,
+    filename="\{inspect_dir}/607_expr_normalize_if_chain.lua",
+  )
   |> @expr/normalize_if.normalize_if
   |> inspect(
     @expr/render.render,

@@ -24,6 +24,7 @@ import {
   "hackwaly/luadec/layers/expr" @expr,
   "hackwaly/luadec/layers/expr/from_structured" @expr/from_structured,
   "hackwaly/luadec/layers/expr/simplify_temps" @expr/simplify_temps,
+  "hackwaly/luadec/layers/expr/normalize_if_chain" @expr/normalize_if_chain,
   "hackwaly/luadec/layers/expr/normalize_if" @expr/normalize_if,
   "hackwaly/luadec/layers/expr/render" @expr/render,
 }

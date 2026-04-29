@@ -370,16 +370,6 @@ fn rewrite_default_assign_guards(
 }
 
 ///|
-fn normalize_branches(
-  branches : Array[(@expr.Expr, @expr.Block)],
-) -> Array[(@expr.Expr, @expr.Block)] {
-  branches.map(fn(branch) {
-    let (cond, body) = branch
-    (normalize_cond(cond), normalize_block(body))
-  })
-}
-
-///|
 fn lift_default_cell_assign(
   cond : @expr.Expr,
   then_body : @expr.Block,
@@ -427,46 +417,13 @@ fn lift_default_cell_assign(
 }
 
 ///|
-fn append_branches(
-  out : Array[(@expr.Expr, @expr.Block)],
-  source : Array[(@expr.Expr, @expr.Block)],
-) -> Unit {
-  for branch in source {
-    out.push(branch)
-  }
-}
-
-///|
-fn flatten_inverted_nested_if(
-  cond : @expr.Expr,
-  then_body : @expr.Block,
-  else_body : @expr.Block,
-) -> (Array[(@expr.Expr, @expr.Block)], @expr.Block?)? {
-  let inverted = invert_cond(cond)
-  guard cond_cost(inverted) <= cond_cost(cond) else { return None }
-  match then_body {
-    [@expr.IfS(inner_branches, inner_else)] => {
-      let branches : Array[(@expr.Expr, @expr.Block)] = [(inverted, else_body)]
-      match (inner_branches, inner_else) {
-        ([(inner_cond, inner_then)], Some(inner_else)) =>
-          match flatten_inverted_nested_if(inner_cond, inner_then, inner_else) {
-            Some((more_branches, tail)) => {
-              append_branches(branches, more_branches)
-              Some((branches, tail))
-            }
-            None => {
-              branches.push((inner_cond, inner_then))
-              Some((branches, Some(inner_else)))
-            }
-          }
-        _ => {
-          append_branches(branches, inner_branches)
-          Some((branches, inner_else))
-        }
-      }
-    }
-    _ => None
-  }
+fn normalize_branches(
+  branches : Array[(@expr.Expr, @expr.Block)],
+) -> Array[(@expr.Expr, @expr.Block)] {
+  branches.map(fn(branch) {
+    let (cond, body) = branch
+    (normalize_cond(cond), normalize_block(body))
+  })
 }
 
 ///|
@@ -501,10 +458,6 @@ fn normalize_if_stmt_fallback(
   then_body : @expr.Block,
   else_body : @expr.Block,
 ) -> Array[@expr.Stmt] {
-  match flatten_inverted_nested_if(cond, then_body, else_body) {
-    Some((branches, else_body)) => return [@expr.IfS(branches, else_body)]
-    None => ()
-  }
   if then_body.is_empty() && !else_body.is_empty() {
     return [@expr.IfS([(invert_cond(cond), else_body)], None)]
   }
