@@ -143,16 +143,16 @@ test "from_structured lowers recognized numeric for shape" {
 }
 
 ///|
-test "from_structured drops trailing empty return from function body" {
+test "from_structured preserves trailing empty return in function body" {
   let id_gen = @ssa.IdGen::IdGen()
   match from_program(program_with(id_gen, @structured.Return([], None))) {
-    [] => ()
+    [@expr.ReturnS([], None)] => ()
     _ => panic()
   }
 }
 
 ///|
-test "from_structured drops trailing empty return from closure body" {
+test "from_structured preserves trailing empty return in closure body" {
   let id_gen = @ssa.IdGen::IdGen()
   let func_id : @ssa.FuncId = { index: 1 }
   let result = fresh_var(id_gen)
@@ -180,7 +180,15 @@ test "from_structured drops trailing empty return from closure body" {
   match from_program(program) {
     [
       @expr.ReturnS(
-        [@expr.ClosureE({ params: [actual_param], vararg: false, body: [] })],
+        [
+          @expr.ClosureE(
+            {
+              params: [actual_param],
+              vararg: false,
+              body: [@expr.ReturnS([], None)],
+            }
+          ),
+        ],
         None
       ),
     ] => {
@@ -191,7 +199,7 @@ test "from_structured drops trailing empty return from closure body" {
 }
 
 ///|
-test "from_structured avoids empty return in tail continuation" {
+test "from_structured preserves empty return in tail continuation" {
   let id_gen = @ssa.IdGen::IdGen()
   let cond = fresh_var(id_gen)
   let cont = fresh_label(id_gen, [])
@@ -203,7 +211,7 @@ test "from_structured avoids empty return in tail continuation" {
   )
 
   match from_program(program_with(id_gen, body)) {
-    [@expr.IfS([(@expr.VarE(actual_cond), [])], None)] => {
+    [@expr.IfS([(@expr.VarE(actual_cond), [])], None), @expr.ReturnS([], None)] => {
       guard actual_cond == cond else { panic() }
     }
     _ => panic()
@@ -260,7 +268,7 @@ test "from_structured lowers goto outer join with abrupt local continuation as g
 }
 
 ///|
-test "from_structured avoids empty return in loop exit tail continuation" {
+test "from_structured preserves empty return in loop exit tail continuation" {
   let id_gen = @ssa.IdGen::IdGen()
   let header = fresh_label(id_gen, [])
   let exit = fresh_label(id_gen, [])
@@ -273,13 +281,16 @@ test "from_structured avoids empty return in loop exit tail continuation" {
   )
 
   match from_program(program_with(id_gen, body)) {
-    [@expr.WhileS(@expr.ConstE(Boolean(true)), [@expr.BreakS])] => ()
+    [
+      @expr.WhileS(@expr.ConstE(Boolean(true)), [@expr.BreakS]),
+      @expr.ReturnS([], None),
+    ] => ()
     _ => panic()
   }
 }
 
 ///|
-test "from_structured avoids empty return in numeric loop exit tail continuation" {
+test "from_structured preserves empty return in numeric loop exit tail continuation" {
   let id_gen = @ssa.IdGen::IdGen()
   let value = fresh_var(id_gen)
   let header = fresh_label(id_gen, [])
@@ -301,6 +312,7 @@ test "from_structured avoids empty return in numeric loop exit tail continuation
         Some(@expr.ConstE(Integer(1L))),
         [@expr.BreakS]
       ),
+      @expr.ReturnS([], None),
     ] => {
       guard actual_value == value else { panic() }
     }
@@ -309,7 +321,7 @@ test "from_structured avoids empty return in numeric loop exit tail continuation
 }
 
 ///|
-test "from_structured avoids empty return in generic loop exit tail continuation" {
+test "from_structured preserves empty return in generic loop exit tail continuation" {
   let id_gen = @ssa.IdGen::IdGen()
   let key = fresh_var(id_gen)
   let value = fresh_var(id_gen)
@@ -332,6 +344,7 @@ test "from_structured avoids empty return in generic loop exit tail continuation
         None,
         [@expr.BreakS]
       ),
+      @expr.ReturnS([], None),
     ] => {
       guard actual_key == key && actual_value == value else { panic() }
       guard actual_iter == iter else { panic() }

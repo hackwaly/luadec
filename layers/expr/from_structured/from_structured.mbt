@@ -447,7 +447,6 @@ fn lower_unknown_loop(
   init_args : Array[@ssa.Expr],
   body : @structured.Region,
   exit_region : (@ssa.Label, @structured.Region)?,
-  tail_empty_return~ : Bool,
 ) -> @expr.Block {
   let out : @expr.Block = []
   match local_stmt_for_label(ctx, header) {
@@ -476,7 +475,7 @@ fn lower_unknown_loop(
   match exit_region {
     Some((exit_label, region)) => {
       append_all(out, materialize_loop_exit_params(ctx, header, exit_label))
-      append_all(out, lower_region_tail(ctx, region, tail_empty_return~))
+      append_all(out, lower_region(ctx, region))
     }
     None => ()
   }
@@ -494,7 +493,6 @@ fn lower_numeric_for_loop(
   step : @ssa.Expr,
   body : @structured.Region,
   exit_region : (@ssa.Label, @structured.Region)?,
-  tail_empty_return~ : Bool,
 ) -> @expr.Block {
   let out : @expr.Block = []
   match local_stmt_for_label(ctx, header) {
@@ -529,7 +527,7 @@ fn lower_numeric_for_loop(
   match exit_region {
     Some((exit_label, region)) => {
       append_all(out, materialize_loop_exit_params(ctx, header, exit_label))
-      append_all(out, lower_region_tail(ctx, region, tail_empty_return~))
+      append_all(out, lower_region(ctx, region))
     }
     None => ()
   }
@@ -546,7 +544,6 @@ fn lower_generic_for_loop(
   multi : @ssa.Multi?,
   body : @structured.Region,
   exit_region : (@ssa.Label, @structured.Region)?,
-  tail_empty_return~ : Bool,
 ) -> @expr.Block {
   let out : @expr.Block = []
   match local_stmt_for_label(ctx, header) {
@@ -581,7 +578,7 @@ fn lower_generic_for_loop(
   match exit_region {
     Some((exit_label, region)) => {
       append_all(out, materialize_loop_exit_params(ctx, header, exit_label))
-      append_all(out, lower_region_tail(ctx, region, tail_empty_return~))
+      append_all(out, lower_region(ctx, region))
     }
     None => ()
   }
@@ -590,25 +587,15 @@ fn lower_generic_for_loop(
 
 ///|
 fn lower_region(ctx : LowerCtx, region : @structured.Region) -> @expr.Block {
-  lower_region_tail(ctx, region, tail_empty_return=false)
-}
-
-///|
-fn lower_region_tail(
-  ctx : LowerCtx,
-  region : @structured.Region,
-  tail_empty_return~ : Bool,
-) -> @expr.Block {
   match region {
     Linear(stmts, next) => {
       let out : @expr.Block = []
       for stmt in stmts {
         append_all(out, lower_stmt(ctx, stmt))
       }
-      append_all(out, lower_region_tail(ctx, next, tail_empty_return~))
+      append_all(out, lower_region(ctx, next))
       out
     }
-    Return([], None) if tail_empty_return => []
     Return(values, multi) =>
       [
         @expr.ReturnS(
@@ -619,13 +606,8 @@ fn lower_region_tail(
     Branch(cond, then_region, else_region) =>
       [
         @expr.IfS(
-          [
-            (
-              lower_expr(ctx, cond),
-              lower_region_tail(ctx, then_region, tail_empty_return~),
-            ),
-          ],
-          Some(lower_region_tail(ctx, else_region, tail_empty_return~)),
+          [(lower_expr(ctx, cond), lower_region(ctx, then_region))],
+          Some(lower_region(ctx, else_region)),
         ),
       ]
     If(cond, then_region, else_region, cont) => {
@@ -641,7 +623,7 @@ fn lower_region_tail(
             [
               (
                 @expr.UnaryE(Not, lower_expr(ctx, cond)),
-                lower_region_tail(ctx, cont_region, tail_empty_return=false),
+                lower_region(ctx, cont_region),
               ),
             ],
             None,
@@ -660,44 +642,20 @@ fn lower_region_tail(
           else_region.map(fn(region) { lower_region(branch_ctx, region) }),
         ),
       )
-      append_all(out, lower_region_tail(ctx, cont_region, tail_empty_return~))
+      append_all(out, lower_region(ctx, cont_region))
       out
     }
     Loop(header, init_args, shape, body, exit_region) =>
       match shape {
         UnknownLS =>
-          lower_unknown_loop(
-            ctx,
-            header,
-            init_args,
-            body,
-            exit_region,
-            tail_empty_return~,
-          )
+          lower_unknown_loop(ctx, header, init_args, body, exit_region)
         NumericForLS(value, start, limit, step) =>
           lower_numeric_for_loop(
-            ctx,
-            header,
-            init_args,
-            value,
-            start,
-            limit,
-            step,
-            body,
-            exit_region,
-            tail_empty_return~,
+            ctx, header, init_args, value, start, limit, step, body, exit_region,
           )
         GenericForLS(vars, exprs, multi) =>
           lower_generic_for_loop(
-            ctx,
-            header,
-            init_args,
-            vars,
-            exprs,
-            multi,
-            body,
-            exit_region,
-            tail_empty_return~,
+            ctx, header, init_args, vars, exprs, multi, body, exit_region,
           )
       }
     Goto(target) => lower_goto(ctx, target)
@@ -725,7 +683,7 @@ fn lower_func(program : @structured.Program, id : @ssa.FuncId) -> @expr.Func {
       declared_cells[cell] = true
     }
   }
-  append_all(body, lower_region_tail(ctx, func.body, tail_empty_return=true))
+  append_all(body, lower_region(ctx, func.body))
   { params: func.params, vararg: func.vararg, body }
 }
 
