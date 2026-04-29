@@ -8,7 +8,7 @@ async fn pipeline(
   bytes : BytesView,
   filename~ : String,
   inspect_filter~ : (String) -> Bool,
-) -> @structured.Program {
+) -> @expr.Program {
   let base = filename.strip_suffix(".lua.bytes").unwrap_or(filename)
   let inspect_dir = "\{base}.inspect"
   @fs.rmdir(inspect_dir, recursive=true) catch {
@@ -85,10 +85,10 @@ async fn pipeline(
     filter~,
     filename="\{inspect_dir}/510_structured_loop_shape.lua",
   )
-  |> @structured/normalize_if.normalize_if
+  |> @expr/from_structured.from_program
   |> inspect(
-    @structured/render.render,
+    @expr/render.render,
     filter~,
-    filename="\{inspect_dir}/520_structured_normalized.lua",
+    filename="\{inspect_dir}/600_expr.lua",
   )
 }

@@ -5,7 +5,6 @@ import {
   "moonbitlang/async",
   "hackwaly/luadec/lib/fs",
   "hackwaly/luadec/lib/console",
-  "hackwaly/luadec/layers/structured",
   "hackwaly/luadec/layers/bc/parse" @bc/parse,
   "hackwaly/luadec/layers/bc/disasm" @bc/disasm,
   "hackwaly/luadec/layers/raw_cfg/from_bc" @raw_cfg/from_bc,
@@ -19,8 +18,10 @@ import {
   "hackwaly/luadec/layers/ssa/render" @ssa/render,
   "hackwaly/luadec/layers/structured/from_ssa" @structured/from_ssa,
   "hackwaly/luadec/layers/structured/recognize_loop_shape" @structured/recognize_loop_shape,
-  "hackwaly/luadec/layers/structured/normalize_if" @structured/normalize_if,
   "hackwaly/luadec/layers/structured/render" @structured/render,
+  "hackwaly/luadec/layers/expr" @expr,
+  "hackwaly/luadec/layers/expr/from_structured" @expr/from_structured,
+  "hackwaly/luadec/layers/expr/render" @expr/render,
 }
 
 supported_targets = "native+js"
