@@ -8,7 +8,7 @@ async fn pipeline(
   bytes : BytesView,
   filename~ : String,
   inspect_filter~ : (String) -> Bool,
-) -> @expr.Program {
+) -> @expr.NamedProgram {
   let base = filename.strip_suffix(".lua.bytes").unwrap_or(filename)
   let inspect_dir = "\{base}.inspect"
   @fs.rmdir(inspect_dir, recursive=true) catch {
@@ -138,5 +138,11 @@ async fn pipeline(
     @expr/render.render,
     filter~,
     filename="\{inspect_dir}/620_expr_drop_tail_return.lua",
+  )
+  |> @expr/infer_names.infer_names
+  |> inspect(
+    @expr/render.render_named,
+    filter~,
+    filename="\{inspect_dir}/630_expr_infer_names.lua",
   )
 }
