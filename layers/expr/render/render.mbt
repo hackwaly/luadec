@@ -84,8 +84,8 @@ fn brace_list(docs : ArrayView[@pretty.Doc]) -> @pretty.Doc {
   @pretty.group(
     @pretty.concat_all([
       @pretty.text("{"),
-      @pretty.nest(2, @pretty.concat(@pretty.linebreak(), comma_sep_docs(docs))),
-      @pretty.linebreak(),
+      @pretty.nest(2, @pretty.concat(@pretty.line(), comma_sep_docs(docs))),
+      @pretty.line(),
       @pretty.text("}"),
     ]),
   )

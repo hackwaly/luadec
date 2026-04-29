@@ -109,6 +109,12 @@ async fn pipeline(
     filter~,
     filename="\{inspect_dir}/605_expr_simplify_temps.lua",
   )
+  |> @expr/fold_table_init.fold_table_init
+  |> inspect(
+    @expr/render.render,
+    filter~,
+    filename="\{inspect_dir}/606_expr_fold_table_init.lua",
+  )
   |> @expr/normalize_if_chain.normalize_if_chain
   |> inspect(
     @expr/render.render,

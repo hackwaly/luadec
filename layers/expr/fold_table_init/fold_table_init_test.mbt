@@ -1,0 +1,151 @@
+///|
+fn nth_id(id_gen : @ssa.IdGen, value : Int) -> @ssa.Id {
+  let mut out = id_gen.next()
+  for _ in 0..<value {
+    out = id_gen.next()
+  }
+  out
+}
+
+///|
+fn value(value : Int) -> @ssa.Var {
+  { id: nth_id(@ssa.IdGen(), value) }
+}
+
+///|
+fn cell(value : Int) -> @ssa.Cell {
+  { id: nth_id(@ssa.IdGen(), value) }
+}
+
+///|
+fn int(value : Int) -> @expr.Expr {
+  @expr.ConstE(Integer(value.to_int64()))
+}
+
+///|
+fn key(name : String) -> @expr.Expr {
+  @expr.ConstE(AsciiString(name, is_valid_identifier=true))
+}
+
+///|
+fn fold_render(body : @expr.Block) -> String {
+  @expr/render.render(fold_table_init(body))
+}
+
+///|
+test "fold_table_init folds local empty table field assignments" {
+  let table = value(0)
+  inspect(
+    fold_render([
+      @expr.BindS(table, @expr.TableE(@expr.ArrayTI([], None))),
+      @expr.SetIndexS(@expr.VarE(table), key("total_output_hurt"), int(1)),
+      @expr.SetIndexS(
+        @expr.VarE(table),
+        key("battle_trace_id"),
+        @expr.VarE(value(1)),
+      ),
+      @expr.ReturnS([@expr.VarE(table)], None),
+    ]),
+    content=(
+      #|local v0 = { total_output_hurt = 1, battle_trace_id = v1 }
+      #|return v0
+    ),
+  )
+}
+
+///|
+test "fold_table_init folds cell empty table field assignments" {
+  let table = cell(0)
+  inspect(
+    fold_render([
+      @expr.LocalS([table], [@expr.TableE(@expr.EmptyTI)]),
+      @expr.SetIndexS(@expr.CellE(table), key("total_output_hurt"), int(1)),
+      @expr.SetIndexS(
+        @expr.CellE(table),
+        key("battle_trace_id"),
+        @expr.VarE(value(1)),
+      ),
+      @expr.ReturnS([@expr.CellE(table)], None),
+    ]),
+    content=(
+      #|local c0 = { total_output_hurt = 1, battle_trace_id = v1 }
+      #|return c0
+    ),
+  )
+}
+
+///|
+test "fold_table_init stops before field assignment that reads table" {
+  let table = cell(0)
+  inspect(
+    fold_render([
+      @expr.LocalS([table], [@expr.TableE(@expr.EmptyTI)]),
+      @expr.SetIndexS(@expr.CellE(table), key("a"), int(1)),
+      @expr.SetIndexS(
+        @expr.CellE(table),
+        key("b"),
+        @expr.IndexE(@expr.CellE(table), key("a")),
+      ),
+      @expr.ReturnS([@expr.CellE(table)], None),
+    ]),
+    content=(
+      #|local c0 = { a = 1 }
+      #|c0.b = c0.a
+      #|return c0
+    ),
+  )
+}
+
+///|
+test "fold_table_init folds nested block table assignments" {
+  let table = cell(0)
+  inspect(
+    fold_render([
+      @expr.IfS(
+        [
+          (
+            @expr.VarE(value(1)),
+            [
+              @expr.LocalS([table], [@expr.TableE(@expr.EmptyTI)]),
+              @expr.SetIndexS(@expr.CellE(table), key("a"), int(1)),
+            ],
+          ),
+        ],
+        None,
+      ),
+    ]),
+    content=(
+      #|if v1 then
+      #|  local c0 = { a = 1 }
+      #|end
+    ),
+  )
+}
+
+///|
+test "fold_table_init recurses into set-index closure body" {
+  let table = value(0)
+  inspect(
+    fold_render([
+      @expr.SetIndexS(
+        @expr.CellE(@ssa.Cell::env()),
+        key("make"),
+        @expr.ClosureE({
+          params: [],
+          vararg: false,
+          body: [
+            @expr.BindS(table, @expr.TableE(@expr.EmptyTI)),
+            @expr.SetIndexS(@expr.VarE(table), key("a"), int(1)),
+            @expr.ReturnS([@expr.VarE(table)], None),
+          ],
+        }),
+      ),
+    ]),
+    content=(
+      #|make = function()
+      #|  local v0 = { a = 1 }
+      #|  return v0
+      #|end
+    ),
+  )
+}
