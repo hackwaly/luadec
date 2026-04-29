@@ -69,13 +69,21 @@ test "prune_cont_params removes unused nested if continuation params" {
       #|if v0 {
       #|  if v0 {
       #|    local v4 = 10
+      #|    goto B11
       #|  } else {
       #|    local v5 = 20
+      #|    goto B11
+      #|  }
+      #|  cont B11 {
+      #|    goto B10
       #|  }
       #|} else {
+      #|  goto B10
       #|}
-      #|local v3 = 4
-      #|return v3
+      #|cont B10 {
+      #|  local v3 = 4
+      #|  return v3
+      #|}
     ),
   )
 }
@@ -95,13 +103,14 @@ test "prune_cont_params keeps used continuation params" {
   inspect(
     prune_render(body),
     content=(
-      #|local v1
       #|if v0 {
-      #|  v1 = 1
+      #|  goto B10(1)
       #|} else {
-      #|  v1 = 2
+      #|  goto B10(2)
       #|}
-      #|return v1
+      #|cont B10(v1) {
+      #|  return v1
+      #|}
     ),
   )
 }
@@ -122,8 +131,11 @@ test "prune_cont_params removes unused loop exit params" {
   inspect(
     prune_render(body),
     content=(
-      #|while true {
-      #|  break
+      #|loop B10 init () shape unknown {
+      #|  goto B11
+      #|}
+      #|exit B11 {
+      #|  return
       #|}
     ),
   )

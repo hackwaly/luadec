@@ -56,8 +56,10 @@ test "normalize_if folds direct return branch into guard" {
       #|if v0 {
       #|  return false
       #|}
-      #|local v1 = 1
-      #|return true
+      #|cont B0 {
+      #|  local v1 = 1
+      #|  return true
+      #|}
     ),
   )
 }
@@ -78,7 +80,9 @@ test "normalize_if prefers positive equality in return chains" {
       #|if v0 == 1 {
       #|  return 1
       #|}
-      #|return 2
+      #|cont B0 {
+      #|  return 2
+      #|}
     ),
   )
 }
@@ -116,12 +120,19 @@ test "normalize_if prunes unused continuation params" {
       #|if v0 {
       #|  if v0 {
       #|    local v4 = 10
+      #|    goto B11
       #|  } else {
       #|    local v5 = 20
+      #|    goto B11
+      #|  }
+      #|  cont B11 {
+      #|    goto B10
       #|  }
       #|}
-      #|local v3 = 4
-      #|return v3
+      #|cont B10 {
+      #|  local v3 = 4
+      #|  return v3
+      #|}
     ),
   )
 }
@@ -148,11 +159,17 @@ test "normalize_if folds loop exit branch after loop shape recognition" {
   assert_eq(
     normalize_render(body),
     (
-      #|while true {
+      #|loop B10 init () shape unknown {
       #|  if v0 {
-      #|    break
+      #|    goto B11
       #|  }
-      #|  local v1 = 1
+      #|  cont B0 {
+      #|    local v1 = 1
+      #|    goto B10
+      #|  }
+      #|}
+      #|exit B11 {
+      #|  return
       #|}
     ),
   )
@@ -188,14 +205,18 @@ test "normalize_if keeps loop continue in join tail" {
   assert_eq(
     normalize_render(body),
     (
-      #|local v1 = 0
-      #|while true {
+      #|loop B20(v1) init (0) shape unknown {
       #|  if v3 {
       #|    local v4 = true
-      #|    break
+      #|    goto B21
       #|  }
-      #|  local v2 = v1 + 1
-      #|  v1 = v2
+      #|  cont B0 {
+      #|    local v2 = v1 + 1
+      #|    goto B20(v2)
+      #|  }
+      #|}
+      #|exit B21 {
+      #|  return
       #|}
     ),
   )
