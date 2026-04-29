@@ -290,3 +290,50 @@ test "from_structured avoids empty return in generic loop exit tail continuation
     _ => panic()
   }
 }
+
+///|
+test "from_structured materializes loop header params on natural exit" {
+  let id_gen = @ssa.IdGen::IdGen()
+  let key = fresh_var(id_gen)
+  let value = fresh_var(id_gen)
+  let iter = fresh_var(id_gen)
+  let count = fresh_var(id_gen)
+  let exit_count = fresh_var(id_gen)
+  let header = fresh_label(id_gen, [count])
+  let exit = fresh_label(id_gen, [exit_count])
+  let body = @structured.Loop(
+    header,
+    [int_expr(0)],
+    @structured.GenericForLS([key, value], [@ssa.VarE(iter)], None),
+    @structured.Goto(@ssa.Target(header, [@ssa.VarE(count)])),
+    Some((exit, @structured.Return([@ssa.VarE(exit_count)], None))),
+  )
+
+  match from_program(program_with(id_gen, body)) {
+    [
+      @expr.LocalS([header_cell], []),
+      @expr.ParallelAssignS([init_cell], [@expr.ConstE(Integer(0L))]),
+      @expr.LocalS([exit_cell], []),
+      @expr.GenericForS(
+        [actual_key, actual_value],
+        [@expr.VarE(actual_iter)],
+        None,
+        []
+      ),
+      @expr.ParallelAssignS(
+        [actual_exit_cell],
+        [@expr.CellE(actual_current_cell)]
+      ),
+      @expr.ReturnS([@expr.CellE(return_cell)], None),
+    ] => {
+      guard actual_key == key && actual_value == value else { panic() }
+      guard actual_iter == iter else { panic() }
+      guard header_cell == init_cell else { panic() }
+      guard exit_cell == actual_exit_cell && exit_cell == return_cell else {
+        panic()
+      }
+      guard actual_current_cell == header_cell else { panic() }
+    }
+    _ => panic()
+  }
+}

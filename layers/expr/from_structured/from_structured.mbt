@@ -347,6 +347,17 @@ fn materialize_target(
 }
 
 ///|
+fn materialize_loop_exit_params(
+  ctx : LowerCtx,
+  header : @ssa.Label,
+  exit_label : @ssa.Label,
+) -> @expr.Block {
+  guard header.params.length() == exit_label.params.length() else { return [] }
+  let args = header.params.map(fn(param) { @ssa.VarE(param) })
+  materialize_target(ctx, exit_label, args)
+}
+
+///|
 fn lower_goto(ctx : LowerCtx, target : @ssa.Target) -> @expr.Block {
   let @ssa.Target(label, args) = target
   let stmts = materialize_target(ctx, label, args)
@@ -402,8 +413,10 @@ fn lower_unknown_loop(
     @expr.WhileS(@expr.ConstE(Boolean(true)), lower_region(body_ctx, body)),
   )
   match exit_region {
-    Some((_, region)) =>
+    Some((exit_label, region)) => {
+      append_all(out, materialize_loop_exit_params(ctx, header, exit_label))
       append_all(out, lower_region_tail(ctx, region, tail_empty_return~))
+    }
     None => ()
   }
   out
@@ -453,8 +466,10 @@ fn lower_numeric_for_loop(
     ),
   )
   match exit_region {
-    Some((_, region)) =>
+    Some((exit_label, region)) => {
+      append_all(out, materialize_loop_exit_params(ctx, header, exit_label))
       append_all(out, lower_region_tail(ctx, region, tail_empty_return~))
+    }
     None => ()
   }
   out
@@ -503,8 +518,10 @@ fn lower_generic_for_loop(
     ),
   )
   match exit_region {
-    Some((_, region)) =>
+    Some((exit_label, region)) => {
+      append_all(out, materialize_loop_exit_params(ctx, header, exit_label))
       append_all(out, lower_region_tail(ctx, region, tail_empty_return~))
+    }
     None => ()
   }
   out

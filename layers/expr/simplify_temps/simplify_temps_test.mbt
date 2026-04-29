@@ -108,6 +108,44 @@ test "simplify_temps keeps temp with later uses" {
 }
 
 ///|
+test "simplify_temps inlines single-use cell temp assignment" {
+  let source = cell(0)
+  let tmp = cell(1)
+  let target = cell(2)
+  inspect(
+    simplify_render([
+      @expr.LocalS([tmp], []),
+      @expr.ParallelAssignS([tmp], [@expr.CellE(source)]),
+      @expr.ParallelAssignS([target], [@expr.CellE(tmp)]),
+    ]),
+    content=(
+      #|c2 = c0
+    ),
+  )
+}
+
+///|
+test "simplify_temps keeps cell temp with later reads" {
+  let source = cell(0)
+  let tmp = cell(1)
+  let target = cell(2)
+  inspect(
+    simplify_render([
+      @expr.LocalS([tmp], []),
+      @expr.ParallelAssignS([tmp], [@expr.CellE(source)]),
+      @expr.ParallelAssignS([target], [@expr.CellE(tmp)]),
+      @expr.ReturnS([@expr.CellE(tmp)], None),
+    ]),
+    content=(
+      #|local c1
+      #|c1 = c0
+      #|c2 = c1
+      #|return c1
+    ),
+  )
+}
+
+///|
 test "simplify_temps recurses into nested blocks" {
   let tmp = value(0)
   let target = cell(1)

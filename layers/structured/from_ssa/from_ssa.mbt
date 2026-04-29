@@ -360,6 +360,36 @@ fn label_params_map(label : @ssa.Label) -> Map[@ssa.Var, Bool] {
 }
 
 ///|
+fn matching_label_params_map(
+  source : @ssa.Label,
+  target : @ssa.Label,
+) -> Map[@ssa.Var, Bool] {
+  let out : Map[@ssa.Var, Bool] = {}
+  let len = if source.params.length() < target.params.length() {
+    source.params.length()
+  } else {
+    target.params.length()
+  }
+  for i in 0..<len {
+    out[source.params[i]] = true
+  }
+  out
+}
+
+///|
+fn expr_allowed_despite_protection(
+  expr : @ssa.Expr,
+  protected_values : Map[@ssa.Var, Bool],
+  allowed_values : Map[@ssa.Var, Bool],
+) -> Bool {
+  guard expr_mentions_any(expr, protected_values) else { return true }
+  match expr {
+    VarE(value) => allowed_values.get(value) == Some(true)
+    _ => false
+  }
+}
+
+///|
 fn expr_equal(lhs : @ssa.Expr, rhs : @ssa.Expr) -> Bool {
   match (lhs, rhs) {
     (VarE(lhs), VarE(rhs)) => lhs == rhs
@@ -422,6 +452,7 @@ fn shrink_cont_params(
   cont : (@ssa.Label, Region),
   allow_single_common : Bool,
   protected_common_values : Map[@ssa.Var, Bool],
+  allowed_common_values? : Map[@ssa.Var, Bool] = {},
 ) -> (Array[Region], (@ssa.Label, Region)) {
   let (old_label, cont_region) = cont
   guard old_label.params.length() > 0 else { return (sources, cont) }
@@ -442,7 +473,11 @@ fn shrink_cont_params(
       common_valid[i] &&
       !expr_mentions_any(common[i], defined_inside) &&
       !expr_mentions_any(common[i], label_params) &&
-      !expr_mentions_any(common[i], protected_common_values) {
+      expr_allowed_despite_protection(
+        common[i],
+        protected_common_values,
+        allowed_common_values,
+      ) {
       subst[param] = common[i]
     } else {
       keep_indices.push(i)
@@ -489,6 +524,7 @@ fn shrink_loop_exit_params(
         cont,
         true,
         label_params_map(header),
+        allowed_common_values=matching_label_params_map(header, cont.0),
       )
       (sources[0], Some(cont))
     }
