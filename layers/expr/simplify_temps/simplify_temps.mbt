@@ -15,6 +15,12 @@ priv struct CellCounter {
 }
 
 ///|
+priv struct CellAlias {
+  from : @ssa.Cell
+  to : @ssa.Cell
+}
+
+///|
 impl @expr.IterVisitor for UseCounter with visit_Expr_VarE(self, value~) {
   self.uses[value] = self.uses.get(value).unwrap_or(0) + 1
 }
@@ -51,6 +57,15 @@ impl @expr.IterVisitor for CellCounter with visit_Stmt_ParallelAssignS(
 }
 
 ///|
+impl @expr.MapVisitor for CellAlias with visit_Cell(self, cell) {
+  if cell == self.from {
+    self.to
+  } else {
+    cell
+  }
+}
+
+///|
 fn count_uses(body : Block) -> Map[@ssa.Var, Int] {
   let uses : Map[@ssa.Var, Int] = {}
   let counter : UseCounter = { uses, }
@@ -80,6 +95,57 @@ fn is_cell_expr(expr : Expr, cell : @ssa.Cell) -> Bool {
     CellE(other) => other == cell
     _ => false
   }
+}
+
+///|
+fn writes_cell(stmt : Stmt, cell : @ssa.Cell) -> Bool {
+  match stmt {
+    ParallelAssignS(cells, _) => {
+      for target in cells {
+        if target == cell {
+          return true
+        }
+      }
+      false
+    }
+    _ => false
+  }
+}
+
+///|
+fn block_writes_cell(body : Block, cell : @ssa.Cell) -> Bool {
+  for stmt in body {
+    match stmt {
+      DoS(body)
+      | WhileS(_, body)
+      | NumericForS(_, _, _, _, body)
+      | GenericForS(_, _, _, body)
+      | ForEachS(_, _, _, body) =>
+        if block_writes_cell(body, cell) {
+          return true
+        }
+      IfS(branches, else_body) => {
+        for branch in branches {
+          let (_, body) = branch
+          if block_writes_cell(body, cell) {
+            return true
+          }
+        }
+        match else_body {
+          Some(body) => if block_writes_cell(body, cell) { return true }
+          None => ()
+        }
+      }
+      _ => if writes_cell(stmt, cell) { return true }
+    }
+  }
+  false
+}
+
+///|
+fn alias_loop_stmt(stmt : Stmt, from : @ssa.Cell, to : @ssa.Cell) -> Stmt {
+  let aliaser : CellAlias = { from, to }
+  aliaser.visit_Stmt(stmt)
 }
 
 ///|
@@ -158,6 +224,28 @@ fn maybe_inline_tmp(
 }
 
 ///|
+fn try_alias_loop_accumulator(
+  init : Stmt,
+  loop_stmt : Stmt,
+  final_assign : Stmt,
+) -> Stmt? {
+  match (init, final_assign) {
+    (
+      ParallelAssignS([tmp], [CellE(source)]),
+      ParallelAssignS([target], [CellE(tmp2)]),
+    ) =>
+      if target == source &&
+        tmp2 == tmp &&
+        !block_writes_cell([loop_stmt], source) {
+        Some(alias_loop_stmt(loop_stmt, tmp, source))
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
 fn simplify_block_once(body : Block) -> (Block, Bool) {
   let uses = count_uses(body)
   let cell_stats = count_cells(body)
@@ -165,6 +253,17 @@ fn simplify_block_once(body : Block) -> (Block, Bool) {
   let changed = [false]
   let mut i = 0
   while i < body.length() {
+    if i + 2 < body.length() {
+      match try_alias_loop_accumulator(body[i], body[i + 1], body[i + 2]) {
+        Some(stmt) => {
+          out.push(stmt)
+          changed[0] = true
+          i = i + 3
+          continue
+        }
+        None => ()
+      }
+    }
     match body[i] {
       BindS(tmp, expr) if i + 1 < body.length() => {
         let next = body[i + 1]

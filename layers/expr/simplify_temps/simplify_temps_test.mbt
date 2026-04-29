@@ -171,3 +171,26 @@ test "simplify_temps recurses into nested blocks" {
     ),
   )
 }
+
+///|
+test "simplify_temps aliases loop accumulator cell back to source" {
+  let source = cell(0)
+  let tmp = cell(1)
+  inspect(
+    simplify_render([
+      @expr.LocalS([tmp], []),
+      @expr.ParallelAssignS([tmp], [@expr.CellE(source)]),
+      @expr.GenericForS([value(2), value(3)], [@expr.VarE(value(4))], None, [
+        @expr.ParallelAssignS([tmp], [
+          @expr.BinaryE(Add, @expr.CellE(tmp), int(1)),
+        ]),
+      ]),
+      @expr.ParallelAssignS([source], [@expr.CellE(tmp)]),
+    ]),
+    content=(
+      #|for v2, v3 in v4 do
+      #|  c0 = c0 + 1
+      #|end
+    ),
+  )
+}
