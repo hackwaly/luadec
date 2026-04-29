@@ -74,6 +74,29 @@ fn is_empty_table_init(init : @expr.TableInit) -> Bool {
 }
 
 ///|
+fn positive_integer_key(expr : @expr.Expr) -> Int64? {
+  match expr {
+    ConstE(Integer(value)) => if value > 0 { Some(value) } else { None }
+    _ => None
+  }
+}
+
+///|
+fn fields_to_array_init(
+  fields : Array[(@expr.Expr, @expr.Expr)],
+) -> @expr.TableInit {
+  let items : Array[@expr.Expr] = []
+  for i in 0..<fields.length() {
+    let (key, value) = fields[i]
+    match positive_integer_key(key) {
+      Some(index) if index == (i + 1).to_int64() => items.push(value)
+      _ => return @expr.TableTI(fields)
+    }
+  }
+  @expr.ArrayTI(items, None)
+}
+
+///|
 fn field_target(stmt : @expr.Stmt) -> (TableTarget, @expr.Expr, @expr.Expr)? {
   match stmt {
     SetIndexS(CellE(cell), key, value) => Some((CellT(cell), key, value))
@@ -124,7 +147,9 @@ fn fold_current_block(body : @expr.Block) -> @expr.Block {
           out.push(body[i])
           i = i + 1
         } else {
-          out.push(@expr.BindS(value, @expr.TableE(@expr.TableTI(fields))))
+          out.push(
+            @expr.BindS(value, @expr.TableE(fields_to_array_init(fields))),
+          )
           i = next
         }
       }
@@ -134,7 +159,9 @@ fn fold_current_block(body : @expr.Block) -> @expr.Block {
           out.push(body[i])
           i = i + 1
         } else {
-          out.push(@expr.LocalS([cell], [@expr.TableE(@expr.TableTI(fields))]))
+          out.push(
+            @expr.LocalS([cell], [@expr.TableE(fields_to_array_init(fields))]),
+          )
           i = next
         }
       }
@@ -145,7 +172,9 @@ fn fold_current_block(body : @expr.Block) -> @expr.Block {
           i = i + 1
         } else {
           out.push(
-            @expr.ParallelAssignS([cell], [@expr.TableE(@expr.TableTI(fields))]),
+            @expr.ParallelAssignS([cell], [
+              @expr.TableE(fields_to_array_init(fields)),
+            ]),
           )
           i = next
         }

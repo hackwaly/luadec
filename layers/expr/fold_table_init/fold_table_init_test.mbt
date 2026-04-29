@@ -54,6 +54,39 @@ test "fold_table_init folds local empty table field assignments" {
 }
 
 ///|
+test "fold_table_init folds consecutive integer keys into array init" {
+  let table = value(0)
+  inspect(
+    fold_render([
+      @expr.BindS(table, @expr.TableE(@expr.EmptyTI)),
+      @expr.SetIndexS(@expr.VarE(table), int(1), @expr.VarE(value(1))),
+      @expr.SetIndexS(@expr.VarE(table), int(2), @expr.VarE(value(2))),
+      @expr.ReturnS([@expr.VarE(table)], None),
+    ]),
+    content=(
+      #|local v0 = { v1, v2 }
+      #|return v0
+    ),
+  )
+}
+
+///|
+test "fold_table_init keeps non-consecutive integer keys as table fields" {
+  let table = value(0)
+  inspect(
+    fold_render([
+      @expr.BindS(table, @expr.TableE(@expr.EmptyTI)),
+      @expr.SetIndexS(@expr.VarE(table), int(2), @expr.VarE(value(1))),
+      @expr.ReturnS([@expr.VarE(table)], None),
+    ]),
+    content=(
+      #|local v0 = { [2] = v1 }
+      #|return v0
+    ),
+  )
+}
+
+///|
 test "fold_table_init folds cell empty table field assignments" {
   let table = cell(0)
   inspect(
