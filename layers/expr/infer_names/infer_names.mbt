@@ -6,6 +6,7 @@ priv struct NameState {
   class_vars : Map[@ssa.Var, Bool]
   class_cells : Map[@ssa.Cell, Bool]
   var_defs : Map[@ssa.Var, @expr.Expr]
+  func_params : Array[Array[@ssa.Var]]
 }
 
 ///|
@@ -93,17 +94,15 @@ fn add_var_name(
 ///|
 fn add_func_param_name(
   state : NameState,
-  func : @expr.Func,
-  index : Int,
+  params : Array[@ssa.Var],
+  value : @ssa.Var,
   candidate : String?,
 ) -> Unit {
-  guard index < func.params.length() else { return }
-  let value = func.params[index]
   guard state.vars.get(value) is None else { return }
   match candidate {
     Some(base) => {
       let used : Map[String, Bool] = {}
-      for param in func.params {
+      for param in params {
         match state.vars.get(param) {
           Some(name) => used[name] = true
           None => ()
@@ -118,6 +117,48 @@ fn add_func_param_name(
       }
     }
     None => ()
+  }
+}
+
+///|
+fn add_func_param_name_at(
+  state : NameState,
+  func : @expr.Func,
+  index : Int,
+  candidate : String?,
+) -> Unit {
+  guard index < func.params.length() else { return }
+  add_func_param_name(state, func.params, func.params[index], candidate)
+}
+
+///|
+fn current_func_params(state : NameState) -> Array[@ssa.Var]? {
+  match state.func_params {
+    [] => None
+    params_stack => Some(params_stack[params_stack.length() - 1])
+  }
+}
+
+///|
+fn params_contain(params : Array[@ssa.Var], value : @ssa.Var) -> Bool {
+  for param in params {
+    if param == value {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn add_contextual_var_name(
+  state : NameState,
+  value : @ssa.Var,
+  candidate : String?,
+) -> Unit {
+  match current_func_params(state) {
+    Some(params) if params_contain(params, value) =>
+      add_func_param_name(state, params, value, candidate)
+    _ => add_var_name(state, value, candidate)
   }
 }
 
@@ -143,6 +184,19 @@ fn string_key_name(expr : @expr.Expr) -> String? {
   match expr {
     ConstE(AsciiString(name, is_valid_identifier=true)) => Some(name)
     _ => None
+  }
+}
+
+///|
+fn field_value_name(key : @expr.Expr) -> String? {
+  match string_key_name(key) {
+    Some(name) =>
+      if name.contains("_") {
+        snake_to_lower_camel(name)
+      } else {
+        Some(name)
+      }
+    None => None
   }
 }
 
@@ -275,10 +329,10 @@ fn infer_assigned_value_name(
   value : @expr.Expr,
 ) -> Unit {
   guard !is_env_expr(target) else { return }
-  match string_key_name(key) {
+  match field_value_name(key) {
     Some(name) =>
       match value {
-        VarE(value) => add_var_name(state, value, Some(name))
+        VarE(value) => add_contextual_var_name(state, value, Some(name))
         CellE(cell) => add_cell_name(state, cell, Some(name))
         _ => ()
       }
@@ -358,11 +412,11 @@ fn infer_class_method_names(
   match (key, value) {
     (ConstE(AsciiString(method_name, is_valid_identifier=true)), ClosureE(func)) => {
       if !func.params.is_empty() {
-        add_func_param_name(state, func, 0, Some("self"))
+        add_func_param_name_at(state, func, 0, Some("self"))
       }
       match setter_parameter_name(method_name) {
         Some(name) if func.params.length() >= 2 =>
-          add_func_param_name(state, func, 1, Some(name))
+          add_func_param_name_at(state, func, 1, Some(name))
         _ => ()
       }
     }
@@ -469,6 +523,12 @@ fn infer_table_init(state : NameState, init : @expr.TableInit) -> Unit {
     TableTI(fields) =>
       for field in fields {
         let (key, value) = field
+        match value {
+          VarE(value) =>
+            add_contextual_var_name(state, value, field_value_name(key))
+          CellE(cell) => add_cell_name(state, cell, field_value_name(key))
+          _ => ()
+        }
         infer_expr(state, key)
         infer_expr(state, value)
       }
@@ -630,7 +690,9 @@ fn infer_block(state : NameState, body : @expr.Block) -> Unit {
 
 ///|
 fn infer_func(state : NameState, func : @expr.Func) -> Unit {
+  state.func_params.push(func.params)
   infer_block(state, func.body)
+  ignore(state.func_params.pop())
 }
 
 ///|
@@ -642,6 +704,7 @@ pub fn infer_names(program : @expr.Program) -> @expr.NamedProgram {
     class_vars: {},
     class_cells: {},
     var_defs: {},
+    func_params: [],
   }
   infer_block(state, program)
   { program, names: { vars: state.vars, cells: state.cells } }

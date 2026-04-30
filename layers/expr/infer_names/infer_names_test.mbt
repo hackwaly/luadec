@@ -414,6 +414,66 @@ test "infer_names derives mutator argument names from method calls" {
 }
 
 ///|
+test "infer_names derives function parameter names from table fields" {
+  let self_var = value(0)
+  let win = value(1)
+  let combat_report = value(2)
+  let task_stat = value(3)
+  let battle_data = value(4)
+  let operate_unit_list = value(5)
+  let verify_cheating = value(6)
+  let request = value(7)
+  let report = value(8)
+  inspect(
+    infer_render([
+      @expr.ReturnS(
+        [
+          @expr.ClosureE({
+            params: [
+              self_var, win, combat_report, task_stat, battle_data, operate_unit_list,
+              verify_cheating,
+            ],
+            vararg: false,
+            body: [
+              @expr.BindS(
+                request,
+                @expr.TableE(
+                  @expr.TableTI([
+                    (key("win"), @expr.VarE(win)),
+                    (key("task_stat"), @expr.VarE(task_stat)),
+                    (key("combatReport"), @expr.VarE(combat_report)),
+                    (key("verify_cheating"), @expr.VarE(verify_cheating)),
+                  ]),
+                ),
+              ),
+              @expr.BindS(
+                report,
+                @expr.TableE(
+                  @expr.TableTI([
+                    (key("battle_data"), @expr.VarE(battle_data)),
+                    (key("operate_unit_list"), @expr.VarE(operate_unit_list)),
+                    (key("verify_cheating"), @expr.VarE(verify_cheating)),
+                  ]),
+                ),
+              ),
+              @expr.ReturnS([@expr.VarE(request), @expr.VarE(report)], None),
+            ],
+          }),
+        ],
+        None,
+      ),
+    ]),
+    content=(
+      #|return function(v0, win, combatReport, taskStat, battleData, operateUnitList, verifyCheating)
+      #|  local v7 = { win = win, task_stat = taskStat, combatReport = combatReport, verify_cheating = verifyCheating }
+      #|  local v8 = { battle_data = battleData, operate_unit_list = operateUnitList, verify_cheating = verifyCheating }
+      #|  return v7, v8
+      #|end
+    ),
+  )
+}
+
+///|
 test "infer_names derives method result names from accessors" {
   let source = value(0)
   let manager = value(1)
