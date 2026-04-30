@@ -23,6 +23,11 @@ fn int(value : Int) -> @expr.Expr {
 }
 
 ///|
+fn bool(value : Bool) -> @expr.Expr {
+  @expr.ConstE(Boolean(value))
+}
+
+///|
 fn key(name : String) -> @expr.Expr {
   @expr.ConstE(AsciiString(name, is_valid_identifier=true))
 }
@@ -125,6 +130,49 @@ test "fold_table_init stops before field assignment that reads table" {
       #|local c0 = { a = 1 }
       #|c0.b = c0.a
       #|return c0
+    ),
+  )
+}
+
+///|
+test "fold_table_init folds interleaved single-use table temp into field" {
+  let table = value(0)
+  let temp = value(1)
+  inspect(
+    fold_render([
+      @expr.BindS(table, @expr.TableE(@expr.EmptyTI)),
+      @expr.SetIndexS(@expr.VarE(table), key("chapter_id"), int(7)),
+      @expr.BindS(temp, @expr.TableE(@expr.EmptyTI)),
+      @expr.SetIndexS(@expr.VarE(temp), key("victory"), bool(true)),
+      @expr.SetIndexS(@expr.VarE(table), key("combatReport"), @expr.VarE(temp)),
+      @expr.SetIndexS(@expr.VarE(table), key("win"), bool(true)),
+      @expr.ReturnS([@expr.VarE(table)], None),
+    ]),
+    content=(
+      #|local v0 = { chapter_id = 7, combatReport = { victory = true }, win = true }
+      #|return v0
+    ),
+  )
+}
+
+///|
+test "fold_table_init keeps interleaved temp that is used after field assignment" {
+  let table = value(0)
+  let temp = value(1)
+  inspect(
+    fold_render([
+      @expr.BindS(table, @expr.TableE(@expr.EmptyTI)),
+      @expr.SetIndexS(@expr.VarE(table), key("chapter_id"), int(7)),
+      @expr.BindS(temp, @expr.TableE(@expr.EmptyTI)),
+      @expr.SetIndexS(@expr.VarE(temp), key("victory"), bool(true)),
+      @expr.SetIndexS(@expr.VarE(table), key("combatReport"), @expr.VarE(temp)),
+      @expr.ReturnS([@expr.VarE(table), @expr.VarE(temp)], None),
+    ]),
+    content=(
+      #|local v0 = { chapter_id = 7 }
+      #|local v1 = { victory = true }
+      #|v0.combatReport = v1
+      #|return v0, v1
     ),
   )
 }

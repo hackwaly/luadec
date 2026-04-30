@@ -11,6 +11,12 @@ priv struct VarRead {
 }
 
 ///|
+priv struct VarMention {
+  value : @ssa.Var
+  found : Array[Bool]
+}
+
+///|
 priv enum TableTarget {
   CellT(@ssa.Cell)
   VarT(@ssa.Var)
@@ -25,6 +31,13 @@ impl @expr.IterVisitor for CellRead with visit_Expr_CellE(self, cell~) {
 
 ///|
 impl @expr.IterVisitor for VarRead with visit_Expr_VarE(self, value~) {
+  if value == self.value {
+    self.found[0] = true
+  }
+}
+
+///|
+impl @expr.IterVisitor for VarMention with visit_Expr_VarE(self, value~) {
   if value == self.value {
     self.found[0] = true
   }
@@ -47,6 +60,14 @@ fn expr_reads_var(expr : @expr.Expr, value : @ssa.Var) -> Bool {
 }
 
 ///|
+fn stmt_mentions_var(stmt : @expr.Stmt, value : @ssa.Var) -> Bool {
+  let found = [false]
+  let visitor : VarMention = { value, found }
+  visitor.visit_Stmt(stmt)
+  found[0]
+}
+
+///|
 fn expr_reads_target(expr : @expr.Expr, target : TableTarget) -> Bool {
   match target {
     CellT(cell) => expr_reads_cell(expr, cell)
@@ -64,12 +85,62 @@ fn same_target(lhs : TableTarget, rhs : TableTarget) -> Bool {
 }
 
 ///|
+fn var_is_mentioned_after(
+  body : @expr.Block,
+  start : Int,
+  value : @ssa.Var,
+) -> Bool {
+  for i in start..<body.length() {
+    if stmt_mentions_var(body[i], value) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn is_empty_table_init(init : @expr.TableInit) -> Bool {
   match init {
     EmptyTI => true
     ArrayTI([], None) => true
     TableTI([]) => true
     _ => false
+  }
+}
+
+///|
+fn can_inline_interleaved_expr(expr : @expr.Expr) -> Bool {
+  match expr {
+    ConstE(_) | VarE(_) | CellE(_) => true
+    IndexE(target, key) =>
+      can_inline_interleaved_expr(target) && can_inline_interleaved_expr(key)
+    UnaryE(_, inner) => can_inline_interleaved_expr(inner)
+    BinaryE(_, lhs, rhs) | AndE(lhs, rhs) | OrE(lhs, rhs) =>
+      can_inline_interleaved_expr(lhs) && can_inline_interleaved_expr(rhs)
+    TableE(init) =>
+      match init {
+        EmptyTI => true
+        ArrayTI(items, None) => {
+          for item in items {
+            if !can_inline_interleaved_expr(item) {
+              return false
+            }
+          }
+          true
+        }
+        ArrayTI(_, Some(_)) => false
+        TableTI(fields) => {
+          for field in fields {
+            let (key, value) = field
+            if !can_inline_interleaved_expr(key) ||
+              !can_inline_interleaved_expr(value) {
+              return false
+            }
+          }
+          true
+        }
+      }
+    NumericForCheckE(_, _, _) | CallE(_) | ClosureE(_) => false
   }
 }
 
@@ -106,6 +177,55 @@ fn field_target(stmt : @expr.Stmt) -> (TableTarget, @expr.Expr, @expr.Expr)? {
 }
 
 ///|
+fn field_assigns_temp_value(
+  stmt : @expr.Stmt,
+  target : TableTarget,
+  temp : @ssa.Var,
+) -> (@expr.Expr, @expr.Expr)? {
+  match field_target(stmt) {
+    Some((actual, key, VarE(value))) if same_target(actual, target) &&
+      value == temp &&
+      !expr_reads_target(key, target) &&
+      !expr_reads_var(key, temp) => Some((key, @expr.VarE(value)))
+    _ => None
+  }
+}
+
+///|
+fn collect_interleaved_temp_field(
+  body : @expr.Block,
+  index : Int,
+  target : TableTarget,
+) -> (@expr.Expr, @expr.Expr, Int)? {
+  match body[index] {
+    BindS(temp, expr) if can_inline_interleaved_expr(expr) &&
+      !expr_reads_target(expr, target) => {
+      let mut value = expr
+      let mut next = index + 1
+      match expr {
+        TableE(init) if is_empty_table_init(init) => {
+          let (fields, after_fields) = collect_field_assigns(
+            body,
+            next,
+            VarT(temp),
+          )
+          value = @expr.TableE(fields_to_array_init(fields))
+          next = after_fields
+        }
+        _ => ()
+      }
+      guard next < body.length() else { return None }
+      match field_assigns_temp_value(body[next], target, temp) {
+        Some((key, _)) if !var_is_mentioned_after(body, next + 1, temp) &&
+          !expr_reads_target(value, target) => Some((key, value, next + 1))
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
 fn collect_field_assigns(
   body : @expr.Block,
   start : Int,
@@ -124,7 +244,14 @@ fn collect_field_assigns(
         } else {
           break
         }
-      None => break
+      None =>
+        match collect_interleaved_temp_field(body, i, target) {
+          Some((key, value, next)) => {
+            fields.push((key, value))
+            i = next
+          }
+          None => break
+        }
     }
   }
   (fields, i)
