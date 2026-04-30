@@ -358,6 +358,44 @@ fn materialize_loop_exit_params(
 }
 
 ///|
+fn is_plain_loop_break(ctx : LowerCtx, region : @structured.Region) -> Bool {
+  match region {
+    Goto(@ssa.Target(label, args)) => {
+      guard args.is_empty() && label.params.is_empty() else { return false }
+      match find_transfer(ctx, label) {
+        Some({ kind: BreakK, .. }) => true
+        Some({ kind: MergeK, loop_depth, .. }) => loop_depth < ctx.loop_depth
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn lower_pretest_loop_body(
+  ctx : LowerCtx,
+  body : @structured.Region,
+) -> (@expr.Expr, @expr.Block)? {
+  match body {
+    Branch(cond, then_region, else_region) =>
+      if is_plain_loop_break(ctx, then_region) {
+        Some(
+          (
+            @expr.UnaryE(Not, lower_expr(ctx, cond)),
+            lower_region(ctx, else_region),
+          ),
+        )
+      } else if is_plain_loop_break(ctx, else_region) {
+        Some((lower_expr(ctx, cond), lower_region(ctx, then_region)))
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
 fn lower_goto(ctx : LowerCtx, target : @ssa.Target) -> @expr.Block {
   let @ssa.Target(label, args) = target
   let stmts = materialize_target(ctx, label, args)
@@ -469,9 +507,13 @@ fn lower_unknown_loop(
     }
     None => ()
   }
-  out.push(
-    @expr.WhileS(@expr.ConstE(Boolean(true)), lower_region(body_ctx, body)),
-  )
+  match lower_pretest_loop_body(body_ctx, body) {
+    Some((cond, body)) => out.push(@expr.WhileS(cond, body))
+    None =>
+      out.push(
+        @expr.WhileS(@expr.ConstE(Boolean(true)), lower_region(body_ctx, body)),
+      )
+  }
   match exit_region {
     Some((exit_label, region)) => {
       append_all(out, materialize_loop_exit_params(ctx, header, exit_label))

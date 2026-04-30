@@ -114,6 +114,69 @@ test "from_structured lowers loop continue to tail assignment without redeclarin
 }
 
 ///|
+test "from_structured lowers loop leading exit guard to while condition" {
+  let id_gen = @ssa.IdGen::IdGen()
+  let value = fresh_var(id_gen)
+  let next = fresh_var(id_gen)
+  let iter = fresh_var(id_gen)
+  let limit = fresh_var(id_gen)
+  let header = fresh_label(id_gen, [iter])
+  let exit = fresh_label(id_gen, [])
+  let exit_cond = @ssa.BinaryE(Geq, @ssa.VarE(iter), @ssa.VarE(limit))
+  let body = @structured.Loop(
+    header,
+    [@ssa.VarE(value)],
+    @structured.UnknownLS,
+    @structured.Branch(
+      exit_cond,
+      @structured.Goto(@ssa.Target(exit, [])),
+      @structured.Linear(
+        [@ssa.BindS(next, @ssa.BinaryE(Add, @ssa.VarE(iter), int_expr(1)))],
+        @structured.Goto(@ssa.Target(header, [@ssa.VarE(next)])),
+      ),
+    ),
+    Some((exit, @structured.Return([], None))),
+  )
+
+  match from_program(program_with(id_gen, body)) {
+    [
+      @expr.LocalS([cell], []),
+      @expr.ParallelAssignS([init_cell], [@expr.VarE(actual_value)]),
+      @expr.WhileS(
+        @expr.UnaryE(
+          Not,
+          @expr.BinaryE(Geq, @expr.CellE(cond_cell), @expr.VarE(actual_limit))
+        ),
+        [
+          @expr.BindS(
+            actual_next,
+            @expr.BinaryE(
+              Add,
+              @expr.CellE(body_cell),
+              @expr.ConstE(Integer(1L))
+            )
+          ),
+          @expr.ParallelAssignS([next_cell], [@expr.VarE(assign_next)]),
+        ]
+      ),
+      @expr.ReturnS([], None),
+    ] => {
+      guard actual_value == value else { panic() }
+      guard actual_limit == limit else { panic() }
+      guard actual_next == next && assign_next == next else { panic() }
+      guard cell == init_cell &&
+        cell == cond_cell &&
+        cell == body_cell &&
+        cell == next_cell else {
+        panic()
+      }
+      guard cell == { id: iter.id } else { panic() }
+    }
+    _ => panic()
+  }
+}
+
+///|
 test "from_structured lowers recognized numeric for shape" {
   let id_gen = @ssa.IdGen::IdGen()
   let value = fresh_var(id_gen)
