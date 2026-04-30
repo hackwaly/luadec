@@ -86,6 +86,34 @@ test "infer_names names require modules from path basename" {
 }
 
 ///|
+test "infer_names names class constructors from class string" {
+  let controller = value(0)
+  inspect(
+    infer_render([
+      @expr.BindS(
+        controller,
+        @expr.CallE(
+          @expr.NormalC(
+            @expr.IndexE(@expr.CellE(@ssa.Cell::env()), key("class")),
+            [
+              @expr.ConstE(
+                AsciiString("BattleBaseController", is_valid_identifier=true),
+              ),
+            ],
+            None,
+          ),
+        ),
+      ),
+      @expr.ReturnS([@expr.VarE(controller)], None),
+    ]),
+    content=(
+      #|local BattleBaseController = class("BattleBaseController")
+      #|return BattleBaseController
+    ),
+  )
+}
+
+///|
 test "infer_names derives method result names from accessors" {
   let source = value(0)
   let manager = value(1)

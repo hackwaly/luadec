@@ -161,6 +161,14 @@ fn require_name(args : Array[@expr.Expr]) -> String? {
 }
 
 ///|
+fn class_name(args : Array[@expr.Expr]) -> String? {
+  match args {
+    [ConstE(AsciiString(name, ..))] | [ConstE(Utf8String(name))] => Some(name)
+    _ => None
+  }
+}
+
+///|
 fn strip_method_prefix(name : String) -> String? {
   for prefix in ["get", "create", "make", "new", "find"] {
     match name.strip_prefix(prefix) {
@@ -212,6 +220,8 @@ fn call_name(call : @expr.Call) -> String? {
       match callee {
         IndexE(CellE(cell), ConstE(AsciiString("require", ..))) if cell.is_env() =>
           require_name(args)
+        IndexE(CellE(cell), ConstE(AsciiString("class", ..))) if cell.is_env() =>
+          class_name(args)
         _ => None
       }
   }
