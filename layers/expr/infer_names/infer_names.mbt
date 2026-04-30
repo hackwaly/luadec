@@ -3,6 +3,8 @@ priv struct NameState {
   vars : Map[@ssa.Var, String]
   cells : Map[@ssa.Cell, String]
   used : Map[String, Bool]
+  class_vars : Map[@ssa.Var, Bool]
+  class_cells : Map[@ssa.Cell, Bool]
 }
 
 ///|
@@ -76,6 +78,22 @@ fn add_var_name(
         None => ()
       }
     None => ()
+  }
+}
+
+///|
+fn add_scoped_var_name(
+  state : NameState,
+  value : @ssa.Var,
+  candidate : String?,
+) -> Unit {
+  guard state.vars.get(value) is None else { return }
+  match candidate {
+    Some(name) if usable_name(name) => {
+      state.vars[value] = name
+      state.used[name] = true
+    }
+    _ => ()
   }
 }
 
@@ -165,6 +183,54 @@ fn class_name(args : Array[@expr.Expr]) -> String? {
   match args {
     [ConstE(AsciiString(name, ..))] | [ConstE(Utf8String(name))] => Some(name)
     _ => None
+  }
+}
+
+///|
+fn is_class_constructor(expr : @expr.Expr) -> Bool {
+  match expr {
+    CallE(call) =>
+      match call {
+        NormalC(callee, args, _) =>
+          match callee {
+            IndexE(CellE(cell), ConstE(AsciiString("class", ..))) if cell.is_env() =>
+              class_name(args) is Some(_)
+            _ => false
+          }
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn mark_class_var(
+  state : NameState,
+  value : @ssa.Var,
+  expr : @expr.Expr,
+) -> Unit {
+  if is_class_constructor(expr) {
+    state.class_vars[value] = true
+  }
+}
+
+///|
+fn mark_class_cell(
+  state : NameState,
+  cell : @ssa.Cell,
+  expr : @expr.Expr,
+) -> Unit {
+  if is_class_constructor(expr) {
+    state.class_cells[cell] = true
+  }
+}
+
+///|
+fn is_class_expr(state : NameState, expr : @expr.Expr) -> Bool {
+  match expr {
+    VarE(value) => state.class_vars.get(value).unwrap_or(false)
+    CellE(cell) => state.class_cells.get(cell).unwrap_or(false)
+    _ => false
   }
 }
 
@@ -312,6 +378,7 @@ fn infer_stmt(state : NameState, stmt : @expr.Stmt) -> Unit {
   match stmt {
     BindS(value, expr) => {
       add_var_name(state, value, expr_name(expr))
+      mark_class_var(state, value, expr)
       infer_expr(state, expr)
     }
     BindMultiS(values, multi) => {
@@ -322,6 +389,14 @@ fn infer_stmt(state : NameState, stmt : @expr.Stmt) -> Unit {
       infer_multi(state, multi)
     }
     SetIndexS(target, key, value) => {
+      match (key, value) {
+        (ConstE(AsciiString(_, is_valid_identifier=true)), ClosureE(func)) if is_class_expr(
+            state, target,
+          ) &&
+          !func.params.is_empty() =>
+          add_scoped_var_name(state, func.params[0], Some("self"))
+        _ => ()
+      }
       infer_expr(state, target)
       infer_expr(state, key)
       infer_expr(state, value)
@@ -341,6 +416,7 @@ fn infer_stmt(state : NameState, stmt : @expr.Stmt) -> Unit {
       for i in 0..<values.length() {
         if i < cells.length() {
           add_cell_name(state, cells[i], expr_name(values[i]))
+          mark_class_cell(state, cells[i], values[i])
         }
         infer_expr(state, values[i])
       }
@@ -348,6 +424,7 @@ fn infer_stmt(state : NameState, stmt : @expr.Stmt) -> Unit {
       for i in 0..<values.length() {
         if i < cells.length() {
           add_cell_name(state, cells[i], expr_name(values[i]))
+          mark_class_cell(state, cells[i], values[i])
         }
         infer_expr(state, values[i])
       }
@@ -417,7 +494,13 @@ fn infer_func(state : NameState, func : @expr.Func) -> Unit {
 
 ///|
 pub fn infer_names(program : @expr.Program) -> @expr.NamedProgram {
-  let state : NameState = { vars: {}, cells: {}, used: {} }
+  let state : NameState = {
+    vars: {},
+    cells: {},
+    used: {},
+    class_vars: {},
+    class_cells: {},
+  }
   infer_block(state, program)
   { program, names: { vars: state.vars, cells: state.cells } }
 }

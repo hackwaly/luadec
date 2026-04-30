@@ -120,3 +120,66 @@ test "render generic for with multi tail" {
     ),
   )
 }
+
+///|
+test "render named class method definition with self receiver" {
+  let id_gen = @ssa.IdGen::IdGen()
+  let class_var : @ssa.Var = { id: id_gen.next() }
+  let self_var : @ssa.Var = { id: id_gen.next() }
+  let arg : @ssa.Var = { id: id_gen.next() }
+  let program : @expr.Program = [
+    @expr.SetIndexS(
+      @expr.VarE(class_var),
+      @expr.ConstE(AsciiString("init", is_valid_identifier=true)),
+      @expr.ClosureE({
+        params: [self_var, arg],
+        vararg: false,
+        body: [
+          @expr.SetIndexS(
+            @expr.VarE(self_var),
+            @expr.ConstE(AsciiString("params", is_valid_identifier=true)),
+            @expr.VarE(arg),
+          ),
+        ],
+      }),
+    ),
+  ]
+  let vars : Map[@ssa.Var, String] = {}
+  vars[class_var] = "BattleBaseController"
+  vars[self_var] = "self"
+  let named : @expr.NamedProgram = { program, names: { vars, cells: {} } }
+
+  inspect(
+    render_named(named),
+    content=(
+      #|function BattleBaseController:init(v2)
+      #|  self.params = v2
+      #|end
+    ),
+  )
+}
+
+///|
+test "render keeps closure field assignment when receiver is not self" {
+  let id_gen = @ssa.IdGen::IdGen()
+  let class_var : @ssa.Var = { id: id_gen.next() }
+  let receiver : @ssa.Var = { id: id_gen.next() }
+  let program : @expr.Program = [
+    @expr.SetIndexS(
+      @expr.VarE(class_var),
+      @expr.ConstE(AsciiString("init", is_valid_identifier=true)),
+      @expr.ClosureE({ params: [receiver], vararg: false, body: [] }),
+    ),
+  ]
+  let vars : Map[@ssa.Var, String] = {}
+  vars[class_var] = "BattleBaseController"
+  let named : @expr.NamedProgram = { program, names: { vars, cells: {} } }
+
+  inspect(
+    render_named(named),
+    content=(
+      #|BattleBaseController.init = function(v1)
+      #|end
+    ),
+  )
+}

@@ -114,6 +114,73 @@ test "infer_names names class constructors from class string" {
 }
 
 ///|
+test "infer_names names class method receiver as self" {
+  let controller = value(0)
+  let first_self = value(1)
+  let arg = value(2)
+  let second_self = value(3)
+  inspect(
+    infer_render([
+      @expr.BindS(
+        controller,
+        @expr.CallE(
+          @expr.NormalC(
+            @expr.IndexE(@expr.CellE(@ssa.Cell::env()), key("class")),
+            [
+              @expr.ConstE(
+                AsciiString("BattleBaseController", is_valid_identifier=true),
+              ),
+            ],
+            None,
+          ),
+        ),
+      ),
+      @expr.SetIndexS(
+        @expr.VarE(controller),
+        key("init"),
+        @expr.ClosureE({
+          params: [first_self, arg],
+          vararg: false,
+          body: [
+            @expr.SetIndexS(
+              @expr.VarE(first_self),
+              key("params"),
+              @expr.VarE(arg),
+            ),
+          ],
+        }),
+      ),
+      @expr.SetIndexS(
+        @expr.VarE(controller),
+        key("reset"),
+        @expr.ClosureE({
+          params: [second_self],
+          vararg: false,
+          body: [
+            @expr.SetIndexS(
+              @expr.VarE(second_self),
+              key("params"),
+              @expr.ConstE(Nil),
+            ),
+          ],
+        }),
+      ),
+      @expr.ReturnS([@expr.VarE(controller)], None),
+    ]),
+    content=(
+      #|local BattleBaseController = class("BattleBaseController")
+      #|function BattleBaseController:init(v2)
+      #|  self.params = v2
+      #|end
+      #|function BattleBaseController:reset()
+      #|  self.params = nil
+      #|end
+      #|return BattleBaseController
+    ),
+  )
+}
+
+///|
 test "infer_names derives method result names from accessors" {
   let source = value(0)
   let manager = value(1)

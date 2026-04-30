@@ -524,6 +524,30 @@ fn render_var_list_doc(
 }
 
 ///|
+fn render_function_name_doc_with(
+  ctx : RenderCtx,
+  expr : @expr.Expr,
+) -> @pretty.Doc? {
+  match expr {
+    VarE(_) | CellE(_) => Some(render_expr_doc_with(ctx, expr))
+    IndexE(target, ConstE(AsciiString(id, is_valid_identifier=true))) =>
+      match render_function_name_doc_with(ctx, target) {
+        Some(target_doc) =>
+          Some(
+            @pretty.concat_all([target_doc, @pretty.text("."), @pretty.text(id)]),
+          )
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn function_param_name(ctx : RenderCtx, param : @ssa.Var) -> String {
+  format_value_with(ctx, param)
+}
+
+///|
 fn render_block_inside(ctx : RenderCtx, body : @expr.Block) -> @pretty.Doc {
   if body.is_empty() {
     @pretty.empty()
@@ -601,20 +625,13 @@ fn render_stmt_doc_with(ctx : RenderCtx, stmt : @expr.Stmt) -> @pretty.Doc {
         ])
       }
     SetIndexS(target, ConstE(AsciiString(id, is_valid_identifier=true)), value) =>
-      if target is CellE(c) && c.is_env() && is_not_generated_identifier(id) {
-        @pretty.concat_all([
-          @pretty.text(id),
-          @pretty.text(" = "),
-          render_expr_doc_with(ctx, value),
-        ])
-      } else {
-        @pretty.concat_all([
-          render_expr_doc_with(ctx, target),
-          @pretty.text("."),
-          @pretty.text(id),
-          @pretty.text(" = "),
-          render_expr_doc_with(ctx, value),
-        ])
+      match value {
+        ClosureE(func) =>
+          match render_method_definition_doc_with(ctx, target, id, func) {
+            Some(doc) => doc
+            None => render_field_assignment_doc_with(ctx, target, id, value)
+          }
+        _ => render_field_assignment_doc_with(ctx, target, id, value)
       }
     SetIndexS(target, key, value) =>
       @pretty.concat_all([
@@ -717,6 +734,64 @@ fn render_stmt_doc_with(ctx : RenderCtx, stmt : @expr.Stmt) -> @pretty.Doc {
         body,
       )
     BreakS => @pretty.text("break")
+  }
+}
+
+///|
+fn render_field_assignment_doc_with(
+  ctx : RenderCtx,
+  target : @expr.Expr,
+  id : String,
+  value : @expr.Expr,
+) -> @pretty.Doc {
+  if target is CellE(c) && c.is_env() && is_not_generated_identifier(id) {
+    @pretty.concat_all([
+      @pretty.text(id),
+      @pretty.text(" = "),
+      render_expr_doc_with(ctx, value),
+    ])
+  } else {
+    @pretty.concat_all([
+      render_expr_doc_with(ctx, target),
+      @pretty.text("."),
+      @pretty.text(id),
+      @pretty.text(" = "),
+      render_expr_doc_with(ctx, value),
+    ])
+  }
+}
+
+///|
+fn render_method_definition_doc_with(
+  ctx : RenderCtx,
+  target : @expr.Expr,
+  method_name : String,
+  func : @expr.Func,
+) -> @pretty.Doc? {
+  guard !func.params.is_empty() else { return None }
+  guard function_param_name(ctx, func.params[0]) == "self" else { return None }
+  let args : Array[@pretty.Doc] = []
+  for param in func.params[1:] {
+    args.push(@pretty.text(function_param_name(ctx, param)))
+  }
+  if func.vararg {
+    args.push(@pretty.text("..."))
+  }
+  match render_function_name_doc_with(ctx, target) {
+    Some(target_doc) =>
+      Some(
+        @pretty.concat_all([
+          @pretty.text("function "),
+          target_doc,
+          @pretty.text(":"),
+          @pretty.text(method_name),
+          paren_list(args),
+          render_block_inside(ctx, func.body),
+          @pretty.hardline(),
+          @pretty.text("end"),
+        ]),
+      )
+    None => None
   }
 }
 
