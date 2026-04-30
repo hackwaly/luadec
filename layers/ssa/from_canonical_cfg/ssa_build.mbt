@@ -525,22 +525,32 @@ fn build_ssa_func(
       None => panic()
     }
   }
-
-  for place in func_plan.cell_places {
-    match func_plan.cell_map.get(place) {
-      Some(cell) => push_binding(place, CellB(cell))
-      None => panic()
+  let current_binding_opt = fn(place : @canonical_cfg.Local) -> Binding? {
+    match stacks.get(place) {
+      Some(items) =>
+        if items.length() == 0 {
+          None
+        } else {
+          Some(items[items.length() - 1])
+        }
+      None => None
+    }
+  }
+  let owned_cell = fn(place : @canonical_cfg.Local) -> Cell? {
+    if place.func == { index: func.index } {
+      func_plan.cell_map.get(place)
+    } else {
+      None
     }
   }
 
   let params : Array[Var] = []
-  let entry_init_stmts : Array[Stmt] = []
   for place in func.params {
     let value = fresh_value()
     params.push(value)
     match resolve_storage(plans, place) {
       VarPS => push_binding(place, VarB(value))
-      CellPS(cell) => entry_init_stmts.push(StoreCellS(cell, VarE(value)))
+      CellPS(_) => push_binding(place, VarB(value))
     }
   }
 
@@ -584,7 +594,42 @@ fn build_ssa_func(
     block_param_values[label] = values
   }
 
-  let register_closure_binding = fn(id : @canonical_cfg.FuncId) -> Array[Var] {
+  let materialize_owned_cell = fn(
+    place : @canonical_cfg.Local,
+    stmts : Array[Stmt],
+    pushed : Array[@canonical_cfg.Local],
+  ) -> Unit {
+    match owned_cell(place) {
+      Some(cell) =>
+        match current_binding_opt(place) {
+          Some(VarB(value)) => {
+            stmts.push(StoreCellS(cell, VarE(value)))
+            push_binding(place, CellB(cell))
+            pushed.push(place)
+          }
+          Some(CellB(_)) => ()
+          None => {
+            push_binding(place, CellB(cell))
+            pushed.push(place)
+          }
+        }
+      None => ()
+    }
+  }
+  let materialize_all_owned_cells = fn(
+    stmts : Array[Stmt],
+    pushed : Array[@canonical_cfg.Local],
+  ) -> Unit {
+    for place in func_plan.cell_places {
+      materialize_owned_cell(place, stmts, pushed)
+    }
+  }
+
+  let register_closure_binding = fn(
+    id : @canonical_cfg.FuncId,
+    stmts : Array[Stmt],
+    pushed : Array[@canonical_cfg.Local],
+  ) -> Array[Var] {
     if closure_bindings.get(id) is Some(_) {
       panic()
     }
@@ -594,7 +639,10 @@ fn build_ssa_func(
     for place in child.upvalues {
       match resolve_storage(plans, place) {
         VarPS => vars.push(binding_value(current_binding(place)))
-        CellPS(cell) => cells.push(cell)
+        CellPS(cell) => {
+          materialize_owned_cell(place, stmts, pushed)
+          cells.push(cell)
+        }
       }
     }
     closure_bindings[id] = { vars, cells }
@@ -602,45 +650,77 @@ fn build_ssa_func(
     vars
   }
 
-  letrec lower_expr = fn(expr : @canonical_cfg.Expr) -> Expr {
+  letrec lower_expr = fn(
+    expr : @canonical_cfg.Expr,
+    stmts : Array[Stmt],
+    pushed : Array[@canonical_cfg.Local],
+  ) -> Expr {
     match expr {
       ConstE(c) => ConstE(c)
       LocalE(place) =>
         match resolve_storage(plans, place) {
           VarPS => VarE(binding_value(current_binding(place)))
-          CellPS(cell) => CellE(cell)
+          CellPS(cell) =>
+            match current_binding_opt(place) {
+              Some(VarB(value)) => VarE(value)
+              Some(CellB(_)) | None => CellE(cell)
+            }
         }
       NumericForCheckE(ctrl, limit, step) =>
-        NumericForCheckE(lower_expr(ctrl), lower_expr(limit), lower_expr(step))
-      IndexE(target, key) => IndexE(lower_expr(target), lower_expr(key))
+        NumericForCheckE(
+          lower_expr(ctrl, stmts, pushed),
+          lower_expr(limit, stmts, pushed),
+          lower_expr(step, stmts, pushed),
+        )
+      IndexE(target, key) =>
+        IndexE(
+          lower_expr(target, stmts, pushed),
+          lower_expr(key, stmts, pushed),
+        )
       NewTableE => TableE(EmptyTI)
-      UnaryE(op, inner) => UnaryE(op, lower_expr(inner))
-      BinaryE(op, lhs, rhs) => BinaryE(op, lower_expr(lhs), lower_expr(rhs))
+      UnaryE(op, inner) => UnaryE(op, lower_expr(inner, stmts, pushed))
+      BinaryE(op, lhs, rhs) =>
+        BinaryE(
+          op,
+          lower_expr(lhs, stmts, pushed),
+          lower_expr(rhs, stmts, pushed),
+        )
       CallE(callee, args, multi) =>
         CallE(
           NormalC(
-            lower_expr(callee),
-            args.map(lower_expr),
-            multi.map(lower_multi),
+            lower_expr(callee, stmts, pushed),
+            args.map(fn(arg) { lower_expr(arg, stmts, pushed) }),
+            multi.map(fn(value) { lower_multi(value, stmts, pushed) }),
           ),
         )
-      ClosureE(id) => ClosureE(ssa_func_id(id), register_closure_binding(id))
+      ClosureE(id) =>
+        ClosureE(ssa_func_id(id), register_closure_binding(id, stmts, pushed))
     }
   }
-  and lower_multi = fn(multi : @canonical_cfg.Multi) -> Multi {
+  and lower_multi = fn(
+    multi : @canonical_cfg.Multi,
+    stmts : Array[Stmt],
+    pushed : Array[@canonical_cfg.Local],
+  ) -> Multi {
     match multi {
       VarargM => VarargM
       CallM(callee, args, tail) =>
         CallM(
           NormalC(
-            lower_expr(callee),
-            args.map(lower_expr),
-            tail.map(lower_multi),
+            lower_expr(callee, stmts, pushed),
+            args.map(fn(arg) { lower_expr(arg, stmts, pushed) }),
+            tail.map(fn(value) { lower_multi(value, stmts, pushed) }),
           ),
         )
     }
   }
-  let lower_cond = fn(expr : @canonical_cfg.Expr) -> Expr { lower_expr(expr) }
+  let lower_cond = fn(
+    expr : @canonical_cfg.Expr,
+    stmts : Array[Stmt],
+    pushed : Array[@canonical_cfg.Local],
+  ) -> Expr {
+    lower_expr(expr, stmts, pushed)
+  }
 
   let lower_target = fn(label : @canonical_cfg.Label) -> Target {
     let args : Array[Expr] = []
@@ -676,11 +756,6 @@ fn build_ssa_func(
     }
 
     let stmts : Array[Stmt] = []
-    if label == func.entry {
-      for stmt in entry_init_stmts {
-        stmts.push(stmt)
-      }
-    }
 
     match func.blocks.get(label) {
       Some(block) => {
@@ -690,18 +765,39 @@ fn build_ssa_func(
               match resolve_storage(plans, place) {
                 VarPS => {
                   let value = fresh_value()
-                  stmts.push(BindS(value, lower_expr(expr)))
+                  stmts.push(BindS(value, lower_expr(expr, stmts, pushed)))
                   push_binding(place, VarB(value))
                   pushed.push(place)
                 }
-                CellPS(cell) => stmts.push(StoreCellS(cell, lower_expr(expr)))
+                CellPS(cell) =>
+                  match owned_cell(place) {
+                    Some(_) =>
+                      match current_binding_opt(place) {
+                        Some(CellB(_)) =>
+                          stmts.push(
+                            StoreCellS(cell, lower_expr(expr, stmts, pushed)),
+                          )
+                        Some(VarB(_)) | None => {
+                          let value = fresh_value()
+                          stmts.push(
+                            BindS(value, lower_expr(expr, stmts, pushed)),
+                          )
+                          push_binding(place, VarB(value))
+                          pushed.push(place)
+                        }
+                      }
+                    None =>
+                      stmts.push(
+                        StoreCellS(cell, lower_expr(expr, stmts, pushed)),
+                      )
+                  }
               }
             SetIndexS(target, key, value) =>
               stmts.push(
                 SetIndexS(
-                  lower_expr(target),
-                  lower_expr(key),
-                  lower_expr(value),
+                  lower_expr(target, stmts, pushed),
+                  lower_expr(key, stmts, pushed),
+                  lower_expr(value, stmts, pushed),
                 ),
               )
             AssignMultiS(places, multi) => {
@@ -709,38 +805,55 @@ fn build_ssa_func(
               for _ in places {
                 values.push(fresh_value())
               }
-              stmts.push(BindMultiS(values, lower_multi(multi)))
+              stmts.push(BindMultiS(values, lower_multi(multi, stmts, pushed)))
               for i in 0..<places.length() {
                 match resolve_storage(plans, places[i]) {
                   VarPS => {
                     push_binding(places[i], VarB(values[i]))
                     pushed.push(places[i])
                   }
-                  CellPS(cell) => stmts.push(StoreCellS(cell, VarE(values[i])))
+                  CellPS(cell) =>
+                    match owned_cell(places[i]) {
+                      Some(_) =>
+                        match current_binding_opt(places[i]) {
+                          Some(CellB(_)) =>
+                            stmts.push(StoreCellS(cell, VarE(values[i])))
+                          Some(VarB(_)) | None => {
+                            push_binding(places[i], VarB(values[i]))
+                            pushed.push(places[i])
+                          }
+                        }
+                      None => stmts.push(StoreCellS(cell, VarE(values[i])))
+                    }
                 }
               }
             }
             SetListS(target, index, values, multi) =>
               stmts.push(
                 SetListS(
-                  lower_expr(target),
-                  lower_expr(index),
-                  values.map(lower_expr),
-                  multi.map(lower_multi),
+                  lower_expr(target, stmts, pushed),
+                  lower_expr(index, stmts, pushed),
+                  values.map(fn(value) { lower_expr(value, stmts, pushed) }),
+                  multi.map(fn(value) { lower_multi(value, stmts, pushed) }),
                 ),
               )
           }
         }
         let term : Term = match block.term {
-          JumpT(next) => JumpT(lower_target(next))
-          CondT(expr, true_label, false_label) =>
-            CondT(
-              lower_cond(expr),
-              lower_target(true_label),
-              lower_target(false_label),
-            )
+          JumpT(next) => {
+            materialize_all_owned_cells(stmts, pushed)
+            JumpT(lower_target(next))
+          }
+          CondT(expr, true_label, false_label) => {
+            let cond = lower_cond(expr, stmts, pushed)
+            materialize_all_owned_cells(stmts, pushed)
+            CondT(cond, lower_target(true_label), lower_target(false_label))
+          }
           ReturnT(values, multi) =>
-            ReturnT(values.map(lower_expr), multi.map(lower_multi))
+            ReturnT(
+              values.map(fn(value) { lower_expr(value, stmts, pushed) }),
+              multi.map(fn(value) { lower_multi(value, stmts, pushed) }),
+            )
         }
         let base_label = ssa_label(plans, label)
         let params = match block_param_values.get(label) {
