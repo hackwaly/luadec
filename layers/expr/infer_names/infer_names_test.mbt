@@ -84,8 +84,8 @@ test "infer_names names require modules from path basename" {
       @expr.ReturnS([@expr.VarE(loaded)], None),
     ]),
     content=(
-      #|local battleHelper = require("app/module/battle_new/logic/helper/battle_helper")
-      #|return battleHelper
+      #|local BattleHelper = require("app/module/battle_new/logic/helper/battle_helper")
+      #|return BattleHelper
     ),
   )
 }
@@ -111,6 +111,70 @@ test "infer_names names top-level returned module table from filename" {
       #|ReportAd.init = function()
       #|end
       #|return ReportAd
+    ),
+  )
+}
+
+///|
+test "infer_names keeps class constructor name ahead of filename fallback" {
+  let class_value = value(0)
+  let base_object = value(1)
+  inspect(
+    infer_render_with_filename(
+      [
+        @expr.BindS(
+          class_value,
+          @expr.CallE(
+            @expr.NormalC(
+              @expr.IndexE(@expr.CellE(@ssa.Cell::env()), key("class")),
+              [
+                @expr.ConstE(
+                  AsciiString("UIPrefabObject", is_valid_identifier=true),
+                ),
+                @expr.VarE(base_object),
+              ],
+              None,
+            ),
+          ),
+        ),
+        @expr.ReturnS([@expr.VarE(class_value)], None),
+      ],
+      "app/bf/unity/uiprefab_object.lua",
+    ),
+    content=(
+      #|local UIPrefabObject = class("UIPrefabObject", v1)
+      #|return UIPrefabObject
+    ),
+  )
+}
+
+///|
+test "infer_names names require modules in PascalCase" {
+  let loaded = value(0)
+  inspect(
+    infer_render([
+      @expr.BindS(
+        loaded,
+        @expr.CallE(
+          @expr.NormalC(
+            @expr.IndexE(@expr.CellE(@ssa.Cell::env()), key("require")),
+            [
+              @expr.ConstE(
+                AsciiString(
+                  "app/bf/unity/mesh_spine_object",
+                  is_valid_identifier=false,
+                ),
+              ),
+            ],
+            None,
+          ),
+        ),
+      ),
+      @expr.ReturnS([@expr.VarE(loaded)], None),
+    ]),
+    content=(
+      #|local MeshSpineObject = require("app/bf/unity/mesh_spine_object")
+      #|return MeshSpineObject
     ),
   )
 }
@@ -549,8 +613,8 @@ test "infer_names names require modules from generic paths" {
       @expr.ReturnS([@expr.VarE(loaded)], None),
     ]),
     content=(
-      #|local itemConfigLoader = require("gameplay/inventory/item_config_loader")
-      #|return itemConfigLoader
+      #|local ItemConfigLoader = require("gameplay/inventory/item_config_loader")
+      #|return ItemConfigLoader
     ),
   )
 }

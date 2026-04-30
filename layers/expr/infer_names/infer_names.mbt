@@ -244,7 +244,7 @@ fn path_basename(path : String) -> String {
 
 ///|
 fn inferred_module_name(path : String) -> String? {
-  snake_to_lower_camel(path_basename(path))
+  snake_to_upper_camel(path_basename(path))
 }
 
 ///|
@@ -763,8 +763,8 @@ pub fn infer_names_with_filename(
     var_defs: {},
     func_params: [],
   }
-  infer_top_returned_module_name(state, program, filename)
   infer_block(state, program)
+  infer_top_returned_module_name(state, program, filename)
   { program, names: { vars: state.vars, cells: state.cells } }
 }
 
