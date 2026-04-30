@@ -329,6 +329,28 @@ test "simplify_temps inlines deferred single-use aliases across statements" {
 }
 
 ///|
+test "simplify_temps keeps index temp when same slot is overwritten before use" {
+  let obj = value(0)
+  let tmp = value(1)
+  let key = @expr.ConstE(AsciiString("callback", is_valid_identifier=true))
+  inspect(
+    simplify_render([
+      @expr.BindS(tmp, @expr.IndexE(@expr.VarE(obj), key)),
+      @expr.SetIndexS(@expr.VarE(obj), key, @expr.ConstE(Nil)),
+      @expr.BindMultiS(
+        [],
+        @expr.CallM(@expr.NormalC(@expr.VarE(tmp), [], None)),
+      ),
+    ]),
+    content=(
+      #|local v1 = v0.callback
+      #|v0.callback = nil
+      #|v1()
+    ),
+  )
+}
+
+///|
 test "simplify_temps does not inline deferred aliases into closure body" {
   let capture = value(0)
   inspect(

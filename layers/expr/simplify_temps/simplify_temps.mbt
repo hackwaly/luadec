@@ -126,6 +126,18 @@ fn is_cell_expr(expr : Expr, cell : @ssa.Cell) -> Bool {
 }
 
 ///|
+fn same_expr(lhs : Expr, rhs : Expr) -> Bool {
+  match (lhs, rhs) {
+    (ConstE(lhs), ConstE(rhs)) => lhs == rhs
+    (VarE(lhs), VarE(rhs)) => lhs == rhs
+    (CellE(lhs), CellE(rhs)) => lhs == rhs
+    (IndexE(lhs_target, lhs_key), IndexE(rhs_target, rhs_key)) =>
+      same_expr(lhs_target, rhs_target) && same_expr(lhs_key, rhs_key)
+    _ => false
+  }
+}
+
+///|
 fn writes_cell(stmt : Stmt, cell : @ssa.Cell) -> Bool {
   match stmt {
     ParallelAssignS(cells, _) => {
@@ -207,6 +219,96 @@ fn can_inline_multiple_uses(expr : Expr) -> Bool {
 }
 
 ///|
+fn expr_invalidated_by_set_index(
+  expr : Expr,
+  target : Expr,
+  key : Expr,
+) -> Bool {
+  match expr {
+    IndexE(expr_target, expr_key) =>
+      (same_expr(expr_target, target) && same_expr(expr_key, key)) ||
+      expr_invalidated_by_set_index(expr_target, target, key) ||
+      expr_invalidated_by_set_index(expr_key, target, key)
+    NumericForCheckE(ctrl, limit, step) =>
+      expr_invalidated_by_set_index(ctrl, target, key) ||
+      expr_invalidated_by_set_index(limit, target, key) ||
+      expr_invalidated_by_set_index(step, target, key)
+    TableE(init) =>
+      match init {
+        EmptyTI => false
+        ArrayTI(items, multi) => {
+          for item in items {
+            if expr_invalidated_by_set_index(item, target, key) {
+              return true
+            }
+          }
+          multi_invalidated_by_set_index(multi, target, key)
+        }
+        TableTI(fields) => {
+          for field in fields {
+            let (field_key, field_value) = field
+            if expr_invalidated_by_set_index(field_key, target, key) ||
+              expr_invalidated_by_set_index(field_value, target, key) {
+              return true
+            }
+          }
+          false
+        }
+      }
+    UnaryE(_, inner) => expr_invalidated_by_set_index(inner, target, key)
+    BinaryE(_, lhs, rhs) | AndE(lhs, rhs) | OrE(lhs, rhs) =>
+      expr_invalidated_by_set_index(lhs, target, key) ||
+      expr_invalidated_by_set_index(rhs, target, key)
+    CallE(call) => call_invalidated_by_set_index(call, target, key)
+    ConstE(_) | VarE(_) | CellE(_) | ClosureE(_) => false
+  }
+}
+
+///|
+fn multi_invalidated_by_set_index(
+  multi : @expr.Multi?,
+  target : Expr,
+  key : Expr,
+) -> Bool {
+  match multi {
+    Some(CallM(call)) => call_invalidated_by_set_index(call, target, key)
+    Some(VarargM) | None => false
+  }
+}
+
+///|
+fn call_invalidated_by_set_index(
+  call : @expr.Call,
+  target : Expr,
+  key : Expr,
+) -> Bool {
+  match call {
+    NormalC(callee, args, multi) => {
+      if expr_invalidated_by_set_index(callee, target, key) {
+        return true
+      }
+      for arg in args {
+        if expr_invalidated_by_set_index(arg, target, key) {
+          return true
+        }
+      }
+      multi_invalidated_by_set_index(multi, target, key)
+    }
+    MethodC(receiver, _, args, multi) => {
+      if expr_invalidated_by_set_index(receiver, target, key) {
+        return true
+      }
+      for arg in args {
+        if expr_invalidated_by_set_index(arg, target, key) {
+          return true
+        }
+      }
+      multi_invalidated_by_set_index(multi, target, key)
+    }
+  }
+}
+
+///|
 fn rewrite_with_subst(
   subst : Map[@ssa.Var, Expr],
   deleted : Map[@ssa.Var, Bool],
@@ -228,6 +330,15 @@ fn inline_deferred_single_use_binds(
   let out : Block = []
   let changed = [false]
   for stmt in body {
+    match stmt {
+      SetIndexS(target, key, _) =>
+        for var_name, expr in subst {
+          if expr_invalidated_by_set_index(expr, target, key) {
+            subst.remove(var_name)
+          }
+        }
+      _ => ()
+    }
     match stmt {
       BindS(value, expr) if (
           uses.get(value).unwrap_or(0) == 1 || can_inline_multiple_uses(expr)
