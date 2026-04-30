@@ -5,6 +5,7 @@ priv struct NameState {
   used : Map[String, Bool]
   class_vars : Map[@ssa.Var, Bool]
   class_cells : Map[@ssa.Cell, Bool]
+  var_defs : Map[@ssa.Var, @expr.Expr]
 }
 
 ///|
@@ -74,7 +75,10 @@ fn add_var_name(
   match candidate {
     Some(base) =>
       match unique_name(state, base) {
-        Some(name) => state.vars[value] = name
+        Some(name) => {
+          state.vars[value] = name
+          propagate_default_alias_name(state, value, name)
+        }
         None => ()
       }
     None => ()
@@ -92,6 +96,7 @@ fn add_scoped_var_name(
     Some(name) if usable_name(name) => {
       state.vars[value] = name
       state.used[name] = true
+      propagate_default_alias_name(state, value, name)
     }
     _ => ()
   }
@@ -235,6 +240,117 @@ fn is_class_expr(state : NameState, expr : @expr.Expr) -> Bool {
 }
 
 ///|
+fn is_env_expr(expr : @expr.Expr) -> Bool {
+  match expr {
+    CellE(cell) => cell.is_env()
+    _ => false
+  }
+}
+
+///|
+fn infer_assigned_value_name(
+  state : NameState,
+  target : @expr.Expr,
+  key : @expr.Expr,
+  value : @expr.Expr,
+) -> Unit {
+  guard !is_env_expr(target) else { return }
+  match string_key_name(key) {
+    Some(name) =>
+      match value {
+        VarE(value) => add_var_name(state, value, Some(name))
+        CellE(cell) => add_cell_name(state, cell, Some(name))
+        _ => ()
+      }
+    None => ()
+  }
+}
+
+///|
+fn infer_default_alias_name(
+  state : NameState,
+  value : @ssa.Var,
+  expr : @expr.Expr,
+) -> Unit {
+  match expr {
+    OrE(VarE(source), _) =>
+      match state.vars.get(value) {
+        Some(name) => add_var_name(state, source, Some(name))
+        None => ()
+      }
+    _ => ()
+  }
+}
+
+///|
+fn propagate_default_alias_name(
+  state : NameState,
+  value : @ssa.Var,
+  name : String,
+) -> Unit {
+  match state.var_defs.get(value) {
+    Some(OrE(VarE(source), _)) => add_var_name(state, source, Some(name))
+    _ => ()
+  }
+}
+
+///|
+fn setter_parameter_name(method_name : String) -> String? {
+  match method_name.strip_prefix("set") {
+    Some(rest) if !rest.is_empty() && rest.to_array()[0].is_ascii_uppercase() =>
+      lower_first(rest.to_owned())
+    _ => None
+  }
+}
+
+///|
+fn mutator_argument_name(method_name : String) -> String? {
+  for prefix in ["set", "add"] {
+    match method_name.strip_prefix(prefix) {
+      Some(rest) if !rest.is_empty() && rest.to_array()[0].is_ascii_uppercase() =>
+        return lower_first(rest.to_owned())
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn infer_var_arg_name(
+  state : NameState,
+  arg : @expr.Expr,
+  candidate : String?,
+) -> Unit {
+  match arg {
+    VarE(value) => add_var_name(state, value, candidate)
+    _ => ()
+  }
+}
+
+///|
+fn infer_class_method_names(
+  state : NameState,
+  target : @expr.Expr,
+  key : @expr.Expr,
+  value : @expr.Expr,
+) -> Unit {
+  guard is_class_expr(state, target) else { return }
+  match (key, value) {
+    (ConstE(AsciiString(method_name, is_valid_identifier=true)), ClosureE(func)) => {
+      if !func.params.is_empty() {
+        add_scoped_var_name(state, func.params[0], Some("self"))
+      }
+      match setter_parameter_name(method_name) {
+        Some(name) if func.params.length() >= 2 =>
+          add_scoped_var_name(state, func.params[1], Some(name))
+        _ => ()
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
 fn strip_method_prefix(name : String) -> String? {
   for prefix in ["get", "create", "make", "new", "find"] {
     match name.strip_prefix(prefix) {
@@ -351,6 +467,11 @@ fn infer_multi(state : NameState, multi : @expr.Multi) -> Unit {
 fn infer_call(state : NameState, call : @expr.Call) -> Unit {
   match call {
     NormalC(callee, args, multi) => {
+      match callee {
+        VarE(value) if state.var_defs.get(value) is None =>
+          add_scoped_var_name(state, value, Some("callback"))
+        _ => ()
+      }
       infer_expr(state, callee)
       for arg in args {
         infer_expr(state, arg)
@@ -360,7 +481,16 @@ fn infer_call(state : NameState, call : @expr.Call) -> Unit {
         None => ()
       }
     }
-    MethodC(target, _, args, multi) => {
+    MethodC(target, method_name, args, multi) => {
+      match args {
+        [first_arg, ..] =>
+          infer_var_arg_name(
+            state,
+            first_arg,
+            mutator_argument_name(method_name),
+          )
+        _ => ()
+      }
       infer_expr(state, target)
       for arg in args {
         infer_expr(state, arg)
@@ -377,8 +507,10 @@ fn infer_call(state : NameState, call : @expr.Call) -> Unit {
 fn infer_stmt(state : NameState, stmt : @expr.Stmt) -> Unit {
   match stmt {
     BindS(value, expr) => {
+      state.var_defs[value] = expr
       add_var_name(state, value, expr_name(expr))
       mark_class_var(state, value, expr)
+      infer_default_alias_name(state, value, expr)
       infer_expr(state, expr)
     }
     BindMultiS(values, multi) => {
@@ -389,14 +521,8 @@ fn infer_stmt(state : NameState, stmt : @expr.Stmt) -> Unit {
       infer_multi(state, multi)
     }
     SetIndexS(target, key, value) => {
-      match (key, value) {
-        (ConstE(AsciiString(_, is_valid_identifier=true)), ClosureE(func)) if is_class_expr(
-            state, target,
-          ) &&
-          !func.params.is_empty() =>
-          add_scoped_var_name(state, func.params[0], Some("self"))
-        _ => ()
-      }
+      infer_class_method_names(state, target, key, value)
+      infer_assigned_value_name(state, target, key, value)
       infer_expr(state, target)
       infer_expr(state, key)
       infer_expr(state, value)
@@ -500,6 +626,7 @@ pub fn infer_names(program : @expr.Program) -> @expr.NamedProgram {
     used: {},
     class_vars: {},
     class_cells: {},
+    var_defs: {},
   }
   infer_block(state, program)
   { program, names: { vars: state.vars, cells: state.cells } }

@@ -169,13 +169,195 @@ test "infer_names names class method receiver as self" {
     ]),
     content=(
       #|local BattleBaseController = class("BattleBaseController")
-      #|function BattleBaseController:init(v2)
-      #|  self.params = v2
+      #|function BattleBaseController:init(params)
+      #|  self.params = params
       #|end
       #|function BattleBaseController:reset()
       #|  self.params = nil
       #|end
       #|return BattleBaseController
+    ),
+  )
+}
+
+///|
+test "infer_names names values from field assignments" {
+  let object = value(0)
+  let callback = value(1)
+  let result = value(2)
+  inspect(
+    infer_render([
+      @expr.SetIndexS(
+        @expr.VarE(object),
+        key("isSelectingSkillCall"),
+        @expr.VarE(callback),
+      ),
+      @expr.SetIndexS(
+        @expr.CellE(@ssa.Cell::env()),
+        key("GLOBAL_NAME"),
+        @expr.VarE(result),
+      ),
+      @expr.ReturnS([@expr.VarE(callback), @expr.VarE(result)], None),
+    ]),
+    content=(
+      #|v0.isSelectingSkillCall = isSelectingSkillCall
+      #|GLOBAL_NAME = v2
+      #|return isSelectingSkillCall, v2
+    ),
+  )
+}
+
+///|
+test "infer_names propagates default alias name to source value" {
+  let source = value(0)
+  let params = value(1)
+  let object = value(2)
+  inspect(
+    infer_render([
+      @expr.BindS(params, @expr.OrE(@expr.VarE(source), @expr.TableE(EmptyTI))),
+      @expr.SetIndexS(@expr.VarE(object), key("params"), @expr.VarE(params)),
+      @expr.ReturnS([@expr.VarE(source), @expr.VarE(params)], None),
+    ]),
+    content=(
+      #|local params = params2 or {}
+      #|v2.params = params
+      #|return params2, params
+    ),
+  )
+}
+
+///|
+test "infer_names derives setter parameter names for class methods" {
+  let controller = value(0)
+  let self_var = value(1)
+  let side = value(2)
+  let buffs_self = value(3)
+  let buffs = value(4)
+  inspect(
+    infer_render([
+      @expr.BindS(
+        controller,
+        @expr.CallE(
+          @expr.NormalC(
+            @expr.IndexE(@expr.CellE(@ssa.Cell::env()), key("class")),
+            [
+              @expr.ConstE(
+                AsciiString("BattleBaseController", is_valid_identifier=true),
+              ),
+            ],
+            None,
+          ),
+        ),
+      ),
+      @expr.SetIndexS(
+        @expr.VarE(controller),
+        key("setCurActionSide"),
+        @expr.ClosureE({
+          params: [self_var, side],
+          vararg: false,
+          body: [
+            @expr.BindMultiS(
+              [],
+              @expr.CallM(
+                @expr.MethodC(
+                  @expr.IndexE(@expr.VarE(self_var), key("battleData")),
+                  "setCurActionSide",
+                  [@expr.VarE(side)],
+                  None,
+                ),
+              ),
+            ),
+          ],
+        }),
+      ),
+      @expr.SetIndexS(
+        @expr.VarE(controller),
+        key("settleBuffs"),
+        @expr.ClosureE({
+          params: [buffs_self, buffs],
+          vararg: false,
+          body: [@expr.ReturnS([@expr.VarE(buffs)], None)],
+        }),
+      ),
+      @expr.ReturnS([@expr.VarE(controller)], None),
+    ]),
+    content=(
+      #|local BattleBaseController = class("BattleBaseController")
+      #|function BattleBaseController:setCurActionSide(curActionSide)
+      #|  self.battleData:setCurActionSide(curActionSide)
+      #|end
+      #|function BattleBaseController:settleBuffs(v4)
+      #|  return v4
+      #|end
+      #|return BattleBaseController
+    ),
+  )
+}
+
+///|
+test "infer_names names directly-called values as callbacks" {
+  let callback = value(0)
+  let local_callback = value(1)
+  inspect(
+    infer_render([
+      @expr.BindMultiS(
+        [],
+        @expr.CallM(@expr.NormalC(@expr.VarE(callback), [], None)),
+      ),
+      @expr.BindS(
+        local_callback,
+        @expr.IndexE(@expr.VarE(callback), key("next")),
+      ),
+      @expr.BindMultiS(
+        [],
+        @expr.CallM(@expr.NormalC(@expr.VarE(local_callback), [], None)),
+      ),
+      @expr.ReturnS([@expr.VarE(callback)], None),
+    ]),
+    content=(
+      #|callback()
+      #|local next = callback.next
+      #|next()
+      #|return callback
+    ),
+  )
+}
+
+///|
+test "infer_names derives mutator argument names from method calls" {
+  let object = value(0)
+  let action_side = value(1)
+  let ignored = value(2)
+  inspect(
+    infer_render([
+      @expr.BindMultiS(
+        [],
+        @expr.CallM(
+          @expr.MethodC(
+            @expr.VarE(object),
+            "setCurActionSide",
+            [@expr.VarE(action_side)],
+            None,
+          ),
+        ),
+      ),
+      @expr.BindMultiS(
+        [],
+        @expr.CallM(
+          @expr.MethodC(
+            @expr.VarE(object),
+            "settleBuffs",
+            [@expr.VarE(ignored)],
+            None,
+          ),
+        ),
+      ),
+      @expr.ReturnS([@expr.VarE(action_side), @expr.VarE(ignored)], None),
+    ]),
+    content=(
+      #|v0:setCurActionSide(curActionSide)
+      #|v0:settleBuffs(v2)
+      #|return curActionSide, v2
     ),
   )
 }
