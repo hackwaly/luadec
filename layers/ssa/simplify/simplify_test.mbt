@@ -223,3 +223,64 @@ test "simplify inlines single-use expression into jump target args" {
     _ => panic()
   }
 }
+
+///|
+test "simplify does not inline table creation into setlist target" {
+  let id_gen = @ssa.IdGen()
+  let entry = fresh_label(id_gen)
+  let table = fresh_var(id_gen)
+  let item = fresh_var(id_gen)
+
+  let mut blocks : SortedMap[@ssa.Label, @ssa.Block] = SortedMap::new()
+  blocks = blocks.add(entry, {
+    stmts: [
+      @ssa.BindS(table, @ssa.TableE(EmptyTI)),
+      @ssa.BindS(
+        item,
+        @ssa.ConstE(AsciiString("light", is_valid_identifier=false)),
+      ),
+      @ssa.SetListS(
+        @ssa.VarE(table),
+        @ssa.ConstE(Integer(0L)),
+        [@ssa.VarE(item)],
+        None,
+      ),
+    ],
+    term: @ssa.ReturnT([@ssa.VarE(table)], None),
+  })
+
+  let program : @ssa.Program = {
+    _id_gen: id_gen,
+    funcs: [
+      {
+        index: 0,
+        params: [],
+        capture_vars: [],
+        capture_cells: [],
+        cells: [],
+        vararg: false,
+        blocks,
+        entry,
+      },
+    ],
+    main: { index: 0 },
+  }
+
+  let simplified = simplify(program, index_as_side_effect=false)
+  let simplified_entry = simplified.funcs[0].blocks[entry]
+  match simplified_entry.stmts {
+    [
+      @ssa.BindS(actual_table, @ssa.TableE(EmptyTI)),
+      @ssa.SetListS(
+        @ssa.VarE(actual_target),
+        @ssa.ConstE(Integer(0L)),
+        [@ssa.ConstE(AsciiString("light", ..))],
+        None
+      ),
+    ] => {
+      guard actual_table == table else { panic() }
+      guard actual_target == table else { panic() }
+    }
+    _ => panic()
+  }
+}

@@ -489,11 +489,23 @@ fn process_stmt(
       )
     }
     @ssa.SetIndexS(target, key, value) => {
+      let mentioned = @ssa/util.mentioned_in_expr(target)
+      let (target_deps, candidates) = candidates_partition(
+        candidates, mentioned,
+      )
       let (before_target, after_target, target) = process_expr(
-        changed, deleted, index_as_side_effect, candidates, target,
+        changed,
+        deleted,
+        index_as_side_effect,
+        empty_candidates(),
+        target,
       )
       let (before_key, after_key, key) = process_expr(
-        changed, deleted, index_as_side_effect, after_target, key,
+        changed,
+        deleted,
+        index_as_side_effect,
+        candidates_merge(candidates, after_target),
+        key,
       )
       let (before_value, after_value, value) = process_expr(
         changed, deleted, index_as_side_effect, after_key, value,
@@ -501,7 +513,10 @@ fn process_stmt(
       (
         candidates_merge(
           candidates_merge(
-            candidates_merge(before_target, before_key),
+            candidates_merge(
+              candidates_merge(target_deps, before_target),
+              before_key,
+            ),
             before_value,
           ),
           after_value,
@@ -517,11 +532,23 @@ fn process_stmt(
       (before, after, Some(@ssa.BindMultiS(values, multi)))
     }
     @ssa.SetListS(target, index, values, multi) => {
+      let mentioned = @ssa/util.mentioned_in_expr(target)
+      let (target_deps, candidates) = candidates_partition(
+        candidates, mentioned,
+      )
       let (before_target, after_target, target) = process_expr(
-        changed, deleted, index_as_side_effect, candidates, target,
+        changed,
+        deleted,
+        index_as_side_effect,
+        empty_candidates(),
+        target,
       )
       let (before_index, after_index, index) = process_expr(
-        changed, deleted, index_as_side_effect, after_target, index,
+        changed,
+        deleted,
+        index_as_side_effect,
+        candidates_merge(candidates, after_target),
+        index,
       )
       let (before_values, after_values, values) = process_exprs(
         changed, deleted, index_as_side_effect, after_index, values,
@@ -535,14 +562,13 @@ fn process_stmt(
         }
         None => (empty_candidates(), after_values, None)
       }
+      let before = candidates_merge(target_deps, before_target)
+      let before = candidates_merge(before, before_index)
+      let before = candidates_merge(before, before_values)
+      let before = candidates_merge(before, before_multi)
+      let before = candidates_merge(before, after_multi)
       (
-        candidates_merge(
-          candidates_merge(
-            candidates_merge(before_target, before_index),
-            before_values,
-          ),
-          candidates_merge(before_multi, after_multi),
-        ),
+        before,
         empty_candidates(),
         Some(@ssa.SetListS(target, index, values, multi)),
       )
