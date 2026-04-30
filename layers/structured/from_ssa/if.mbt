@@ -241,13 +241,13 @@ fn extract_bare_return(
           (cont_label, Return([], None)),
         ),
       )
-    (Some(_), None) =>
+    (Some(then_region), None) if is_empty_goto_to(then_region, cont_label) =>
       Some(
         If(invert_cond(cond), else_region, None, (cont_label, Return([], None))),
       )
-    (None, Some(_)) =>
+    (None, Some(else_region)) if is_empty_goto_to(else_region, cont_label) =>
       Some(If(cond, then_region, None, (cont_label, Return([], None))))
-    (None, None) => None
+    _ => None
   }
 }
 
