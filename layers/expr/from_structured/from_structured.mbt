@@ -179,7 +179,8 @@ fn lower_expr(ctx : LowerCtx, expr : @ssa.Expr) -> @expr.Expr {
     AndE(lhs, rhs) => @expr.AndE(lower_expr(ctx, lhs), lower_expr(ctx, rhs))
     OrE(lhs, rhs) => @expr.OrE(lower_expr(ctx, lhs), lower_expr(ctx, rhs))
     CallE(call) => @expr.CallE(lower_call(ctx, call))
-    ClosureE(func, _) => @expr.ClosureE(lower_func(ctx.program, func))
+    ClosureE(func, _) =>
+      @expr.ClosureE(lower_func(ctx.program, func, parent_ctx=ctx))
   }
 }
 
@@ -738,9 +739,21 @@ fn lower_region(ctx : LowerCtx, region : @structured.Region) -> @expr.Block {
 }
 
 ///|
-fn lower_func(program : @structured.Program, id : @ssa.FuncId) -> @expr.Func {
+fn lower_func(
+  program : @structured.Program,
+  id : @ssa.FuncId,
+  parent_ctx? : LowerCtx,
+) -> @expr.Func {
   let func = program.funcs[id.index]
   let param_cells : Map[@ssa.Var, @ssa.Cell] = {}
+  match parent_ctx {
+    Some(ctx) =>
+      for entry in ctx.param_cells {
+        let (value, cell) = entry
+        param_cells[value] = cell
+      }
+    None => ()
+  }
   collect_region_params(param_cells, func.body)
   let declared_cells : Map[@ssa.Cell, Bool] = {}
   let ctx : LowerCtx = {

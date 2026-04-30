@@ -67,6 +67,65 @@ test "from_structured lowers if merge params to local cell and parallel assign" 
 }
 
 ///|
+test "from_structured maps captured merge params to cells inside closures" {
+  let id_gen = @ssa.IdGen::IdGen()
+  let cond = fresh_var(id_gen)
+  let then_value = fresh_var(id_gen)
+  let else_value = fresh_var(id_gen)
+  let result = fresh_var(id_gen)
+  let join = fresh_label(id_gen, [result])
+  let func_id : @ssa.FuncId = { index: 1 }
+  let program : @structured.Program = {
+    _id_gen: id_gen,
+    funcs: [
+      {
+        index: 0,
+        params: [],
+        cells: [],
+        vararg: false,
+        body: @structured.If(
+          @ssa.VarE(cond),
+          @structured.Goto(@ssa.Target(join, [@ssa.VarE(then_value)])),
+          Some(@structured.Goto(@ssa.Target(join, [@ssa.VarE(else_value)]))),
+          (join, @structured.Return([@ssa.ClosureE(func_id, [])], None)),
+        ),
+      },
+      {
+        index: 1,
+        params: [],
+        cells: [],
+        vararg: false,
+        body: @structured.Return([@ssa.VarE(result)], None),
+      },
+    ],
+    main: { index: 0 },
+  }
+
+  match from_program(program) {
+    [
+      @expr.LocalS([cell], []),
+      @expr.IfS(_, _),
+      @expr.ReturnS(
+        [
+          @expr.ClosureE(
+            {
+              params: [],
+              vararg: false,
+              body: [@expr.ReturnS([@expr.CellE(return_cell)], None)],
+            }
+          ),
+        ],
+        None
+      ),
+    ] => {
+      guard cell == return_cell else { panic() }
+      guard cell == { id: result.id } else { panic() }
+    }
+    _ => panic()
+  }
+}
+
+///|
 test "from_structured lowers loop continue to tail assignment without redeclaring cell" {
   let id_gen = @ssa.IdGen::IdGen()
   let value = fresh_var(id_gen)
