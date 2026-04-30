@@ -11,11 +11,13 @@ async fn pipeline(
 ) -> @expr.NamedProgram {
   let base = filename.strip_suffix(".lua.bytes").unwrap_or(filename)
   let inspect_dir = "\{base}.inspect"
-  @fs.rmdir(inspect_dir, recursive=true) catch {
-    _ => ()
-  }
-  @fs.mkdir(inspect_dir, recursive=true)
   let filter = inspect_filter
+  if filter("\{inspect_dir}/100_disasm.txt") {
+    @fs.rmdir(inspect_dir, recursive=true) catch {
+      _ => ()
+    }
+    @fs.mkdir(inspect_dir, recursive=true)
+  }
   bytes
   |> @bc/parse.parse
   |> inspect(

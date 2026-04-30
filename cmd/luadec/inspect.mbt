@@ -32,5 +32,5 @@ async fn[T] inspect(
 async fn handle_inspect_command(matches : @argparse.Matches) -> Unit {
   let filename = matches.values["input"][0]
   let bytes = @fs.read_file(filename).binary()
-  pipeline(bytes, filename~, inspect_filter=_ => true) |> ignore
+  let _ = pipeline(bytes, filename~, inspect_filter=_ => true)
 }
