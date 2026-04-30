@@ -309,6 +309,43 @@ test "expr normalize_if lifts repeated default cell assignment through guards" {
 }
 
 ///|
+test "expr normalize_if does not lift default assignment with call rhs" {
+  let cond = value(0)
+  let target = cell(1)
+  let callee = value(2)
+  let body : @expr.Program = [
+    @expr.IfS(
+      [
+        (
+          @expr.VarE(cond),
+          [
+            @expr.BindS(value(3), int(3)),
+            @expr.ParallelAssignS([target], [@expr.VarE(value(4))]),
+          ],
+        ),
+      ],
+      Some([
+        @expr.ParallelAssignS([target], [
+          @expr.CallE(@expr.NormalC(@expr.VarE(callee), [], None)),
+        ]),
+      ]),
+    ),
+  ]
+
+  inspect(
+    normalize_render(body),
+    content=(
+      #|if v0 then
+      #|  local v3 = 3
+      #|  c1 = v4
+      #|else
+      #|  c1 = v2()
+      #|end
+    ),
+  )
+}
+
+///|
 test "expr normalize_if pulls leading return branch out of elseif chain" {
   let started = value(0)
   let prepared = value(1)

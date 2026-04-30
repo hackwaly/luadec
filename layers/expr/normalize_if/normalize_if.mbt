@@ -306,6 +306,14 @@ fn is_default_cell_assign(
 }
 
 ///|
+fn expr_is_safe_to_lift_default(expr : @expr.Expr) -> Bool {
+  match expr {
+    ConstE(_) | VarE(_) | CellE(_) => true
+    _ => false
+  }
+}
+
+///|
 fn rewrite_default_assign_guards(
   cell : @ssa.Cell,
   expr : @expr.Expr,
@@ -368,7 +376,8 @@ fn lift_default_cell_assign(
 ) -> Array[@expr.Stmt]? {
   match direct_cell_assign(then_body) {
     Some((cell, expr)) =>
-      if !else_body.is_empty() &&
+      if expr_is_safe_to_lift_default(expr) &&
+        !else_body.is_empty() &&
         !block_is_abrupt_exit(else_body) &&
         !block_reads_cell(else_body, cell) {
         Some([
@@ -389,7 +398,8 @@ fn lift_default_cell_assign(
     None =>
       match direct_cell_assign(else_body) {
         Some((cell, expr)) =>
-          if !then_body.is_empty() &&
+          if expr_is_safe_to_lift_default(expr) &&
+            !then_body.is_empty() &&
             !block_is_abrupt_exit(then_body) &&
             !block_reads_cell(then_body, cell) {
             Some([
