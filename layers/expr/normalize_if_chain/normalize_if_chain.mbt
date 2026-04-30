@@ -315,8 +315,6 @@ fn normalize_stmt(stmt : @expr.Stmt) -> @expr.Stmt {
         multi.map(fn(next) { normalize_multi(next) }),
         normalize_block(body),
       )
-    ForEachS(key, value, iter, body) =>
-      @expr.ForEachS(key, value, normalize_expr(iter), normalize_block(body))
     BindS(value, expr) => @expr.BindS(value, normalize_expr(expr))
     BindMultiS(values, multi) =>
       @expr.BindMultiS(values, normalize_multi(multi))

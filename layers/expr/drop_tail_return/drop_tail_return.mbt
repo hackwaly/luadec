@@ -149,13 +149,6 @@ fn drop_tail_return_stmt(stmt : @expr.Stmt) -> @expr.Stmt {
         multi.map(fn(next) { drop_tail_return_multi(next) }),
         drop_tail_return_block(body),
       )
-    ForEachS(key, value, iter, body) =>
-      @expr.ForEachS(
-        key,
-        value,
-        drop_tail_return_expr(iter),
-        drop_tail_return_block(body),
-      )
     BreakS => @expr.BreakS
   }
 }

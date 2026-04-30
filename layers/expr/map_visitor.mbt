@@ -36,13 +36,6 @@ pub(open) trait MapVisitor {
     multi~ : Multi?,
     body~ : Block,
   ) -> Stmt = _
-  visit_Stmt_ForEachS(
-    Self,
-    key~ : Var,
-    value~ : Var,
-    iter~ : Expr,
-    body~ : Block,
-  ) -> Stmt = _
   visit_Stmt_BreakS(Self) -> Stmt = _
   visit_Expr(Self, Expr) -> Expr = _
   visit_Expr_ConstE(Self, value~ : Constant) -> Expr = _
@@ -186,11 +179,6 @@ impl MapVisitor with visit_Stmt_GenericForS(
     multi~,
     body~,
   )
-}
-
-///|
-impl MapVisitor with visit_Stmt_ForEachS(env, key~, value~, iter~, body~) {
-  MapVisitorBase::visit_Stmt_ForEachS(env, key~, value~, iter~, body~)
 }
 
 ///|
@@ -383,8 +371,6 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Stmt(
       env.0.visit_Stmt_NumericForS(value~, start~, stop~, step~, body~)
     GenericForS(values, iterators, multi, body) =>
       env.0.visit_Stmt_GenericForS(values~, iterators~, multi~, body~)
-    ForEachS(key, value, iter, body) =>
-      env.0.visit_Stmt_ForEachS(key~, value~, iter~, body~)
     BreakS => env.0.visit_Stmt_BreakS()
   }
 }
@@ -544,22 +530,6 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Stmt_Generi
     values.map(fn(value) { env.0.visit_Var(value) }),
     iterators.map(fn(iter) { env.0.visit_Expr(iter) }),
     multi.map(fn(next) { env.0.visit_Multi(next) }),
-    env.0.visit_Block(body),
-  )
-}
-
-///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Stmt_ForEachS(
-  env,
-  key~,
-  value~,
-  iter~,
-  body~,
-) {
-  ForEachS(
-    env.0.visit_Var(key),
-    env.0.visit_Var(value),
-    env.0.visit_Expr(iter),
     env.0.visit_Block(body),
   )
 }

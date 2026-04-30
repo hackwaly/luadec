@@ -36,13 +36,6 @@ pub(open) trait IterVisitor {
     multi~ : Multi?,
     body~ : Block,
   ) -> Unit = _
-  visit_Stmt_ForEachS(
-    Self,
-    key~ : Var,
-    value~ : Var,
-    iter~ : Expr,
-    body~ : Block,
-  ) -> Unit = _
   visit_Stmt_BreakS(Self) -> Unit = _
   visit_Expr(Self, Expr) -> Unit = _
   visit_Expr_ConstE(Self, value~ : Constant) -> Unit = _
@@ -186,11 +179,6 @@ impl IterVisitor with visit_Stmt_GenericForS(
     multi~,
     body~,
   )
-}
-
-///|
-impl IterVisitor with visit_Stmt_ForEachS(env, key~, value~, iter~, body~) {
-  IterVisitorBase::visit_Stmt_ForEachS(env, key~, value~, iter~, body~)
 }
 
 ///|
@@ -384,8 +372,6 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Stmt(
       env.0.visit_Stmt_NumericForS(value~, start~, stop~, step~, body~)
     GenericForS(values, iterators, multi, body) =>
       env.0.visit_Stmt_GenericForS(values~, iterators~, multi~, body~)
-    ForEachS(key, value, iter, body) =>
-      env.0.visit_Stmt_ForEachS(key~, value~, iter~, body~)
     BreakS => env.0.visit_Stmt_BreakS()
   }
 }
@@ -563,20 +549,6 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Stmt_Gen
     Some(next) => env.0.visit_Multi(next)
     None => ()
   }
-  env.0.visit_Block(body)
-}
-
-///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Stmt_ForEachS(
-  env,
-  key~,
-  value~,
-  iter~,
-  body~,
-) {
-  env.0.visit_Var(key)
-  env.0.visit_Var(value)
-  env.0.visit_Expr(iter)
   env.0.visit_Block(body)
 }
 

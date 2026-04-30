@@ -238,7 +238,7 @@ fn lower_setlist(
         ),
       )
       out.push(
-        @expr.ForEachS(key, value, iter_expr, [
+        @expr.GenericForS([key, value], [iter_expr], None, [
           @expr.SetIndexS(
             target,
             expr_with_offset(@expr.VarE(key), values.length()),

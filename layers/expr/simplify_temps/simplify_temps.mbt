@@ -147,8 +147,7 @@ fn block_writes_cell(body : Block, cell : @ssa.Cell) -> Bool {
       DoS(body)
       | WhileS(_, body)
       | NumericForS(_, _, _, _, body)
-      | GenericForS(_, _, _, body)
-      | ForEachS(_, _, _, body) =>
+      | GenericForS(_, _, _, body) =>
         if block_writes_cell(body, cell) {
           return true
         }

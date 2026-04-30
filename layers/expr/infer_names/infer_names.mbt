@@ -375,12 +375,6 @@ fn infer_stmt(state : NameState, stmt : @expr.Stmt) -> Unit {
       }
       infer_block(state, body)
     }
-    ForEachS(key, value, iter, body) => {
-      add_var_name(state, key, Some("key"))
-      add_var_name(state, value, Some("value"))
-      infer_expr(state, iter)
-      infer_block(state, body)
-    }
     BreakS => ()
   }
 }

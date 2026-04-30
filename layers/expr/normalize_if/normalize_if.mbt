@@ -209,8 +209,7 @@ fn stmt_is_abrupt_exit(stmt : @expr.Stmt) -> Bool {
     DoS(body)
     | WhileS(_, body)
     | NumericForS(_, _, _, _, body)
-    | GenericForS(_, _, _, body)
-    | ForEachS(_, _, _, body) => block_is_abrupt_exit(body)
+    | GenericForS(_, _, _, body) => block_is_abrupt_exit(body)
     IfS(branches, else_body) => {
       for branch in branches {
         let (_, body) = branch
@@ -516,8 +515,6 @@ fn normalize_stmt(stmt : @expr.Stmt) -> Array[@expr.Stmt] {
           normalize_block(body),
         ),
       ]
-    ForEachS(key, value, iter, body) =>
-      [@expr.ForEachS(key, value, normalize_expr(iter), normalize_block(body))]
     BindS(value, expr) => [@expr.BindS(value, normalize_expr(expr))]
     BindMultiS(values, multi) =>
       [@expr.BindMultiS(values, normalize_multi(multi))]

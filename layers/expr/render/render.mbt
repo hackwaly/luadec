@@ -716,18 +716,6 @@ fn render_stmt_doc_with(ctx : RenderCtx, stmt : @expr.Stmt) -> @pretty.Doc {
         ]),
         body,
       )
-    ForEachS(key, value, iter, body) =>
-      render_end_block(
-        ctx,
-        @pretty.concat_all([
-          @pretty.text("for "),
-          render_var_list_doc(ctx, [key, value]),
-          @pretty.text(" in "),
-          render_expr_doc_with(ctx, iter),
-          @pretty.text(" do"),
-        ]),
-        body,
-      )
     BreakS => @pretty.text("break")
   }
 }

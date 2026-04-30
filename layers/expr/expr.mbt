@@ -69,7 +69,6 @@ pub(all) enum Stmt {
   WhileS(Expr, Block)
   NumericForS(Var, Expr, Expr, Expr?, Block)
   GenericForS(Array[Var], Array[Expr], Multi?, Block)
-  ForEachS(Var, Var, Expr, Block)
   BreakS
 } derive(Debug)
 
