@@ -102,8 +102,10 @@ fn replace_tail_target(
     If(cond, then_region, else_region, (cont_label, cont_region)) =>
       If(
         cond,
-        then_region,
-        else_region,
+        replace_tail_target(then_region, expected, replacement),
+        else_region.map(fn(region) {
+          replace_tail_target(region, expected, replacement)
+        }),
         (cont_label, replace_tail_target(cont_region, expected, replacement)),
       )
     Loop(header, init_args, shape, body, Some((exit_label, exit_region))) =>
@@ -111,26 +113,17 @@ fn replace_tail_target(
         header,
         init_args,
         shape,
-        body,
+        replace_tail_target(body, expected, replacement),
         Some(
           (exit_label, replace_tail_target(exit_region, expected, replacement)),
         ),
       )
     Branch(cond, then_region, else_region) =>
-      match (tail_target(then_region), tail_target(else_region)) {
-        (Some(then_target), Some(else_target)) =>
-          if target_equal(then_target, expected) &&
-            target_equal(else_target, expected) {
-            Branch(
-              cond,
-              replace_tail_target(then_region, expected, replacement),
-              replace_tail_target(else_region, expected, replacement),
-            )
-          } else {
-            region
-          }
-        _ => region
-      }
+      Branch(
+        cond,
+        replace_tail_target(then_region, expected, replacement),
+        replace_tail_target(else_region, expected, replacement),
+      )
     _ => region
   }
 }

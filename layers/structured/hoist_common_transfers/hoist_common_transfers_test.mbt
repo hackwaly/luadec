@@ -183,3 +183,41 @@ test "hoist_common_transfers looks through loop exit continuation" {
     ),
   )
 }
+
+///|
+test "hoist_common_transfers replaces nested if branch tail target" {
+  let cond_outer = value(0)
+  let cond_inner = value(1)
+  let old_join = label(10)
+  let inner_join = label(11)
+  let body = @structured.If(
+    VarE(cond_outer),
+    @structured.If(
+      VarE(cond_inner),
+      Goto(Target(old_join, [])),
+      None,
+      (inner_join, Goto(Target(old_join, []))),
+    ),
+    Some(Goto(Target(old_join, []))),
+    (old_join, Return([], None)),
+  )
+
+  inspect(
+    hoist_render(body),
+    content=(
+      #|if v0 {
+      #|  if v1 {
+      #|    goto B0
+      #|  }
+      #|  cont B11 {
+      #|    goto B0
+      #|  }
+      #|} else {
+      #|  goto B0
+      #|}
+      #|cont B0 {
+      #|  return
+      #|}
+    ),
+  )
+}
