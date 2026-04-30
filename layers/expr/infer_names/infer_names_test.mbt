@@ -88,6 +88,8 @@ test "infer_names names require modules from path basename" {
 ///|
 test "infer_names names class constructors from class string" {
   let controller = value(0)
+  let base_ui = value(1)
+  let gm_tool_ui = value(2)
   inspect(
     infer_render([
       @expr.BindS(
@@ -104,11 +106,25 @@ test "infer_names names class constructors from class string" {
           ),
         ),
       ),
-      @expr.ReturnS([@expr.VarE(controller)], None),
+      @expr.BindS(
+        gm_tool_ui,
+        @expr.CallE(
+          @expr.NormalC(
+            @expr.IndexE(@expr.CellE(@ssa.Cell::env()), key("class")),
+            [
+              @expr.ConstE(AsciiString("GMToolUI", is_valid_identifier=true)),
+              @expr.VarE(base_ui),
+            ],
+            None,
+          ),
+        ),
+      ),
+      @expr.ReturnS([@expr.VarE(controller), @expr.VarE(gm_tool_ui)], None),
     ]),
     content=(
       #|local BattleBaseController = class("BattleBaseController")
-      #|return BattleBaseController
+      #|local GMToolUI = class("GMToolUI", v1)
+      #|return BattleBaseController, GMToolUI
     ),
   )
 }

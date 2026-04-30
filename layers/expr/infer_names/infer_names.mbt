@@ -186,7 +186,8 @@ fn require_name(args : Array[@expr.Expr]) -> String? {
 ///|
 fn class_name(args : Array[@expr.Expr]) -> String? {
   match args {
-    [ConstE(AsciiString(name, ..))] | [ConstE(Utf8String(name))] => Some(name)
+    [ConstE(AsciiString(name, ..)), ..] | [ConstE(Utf8String(name)), ..] =>
+      Some(name)
     _ => None
   }
 }
