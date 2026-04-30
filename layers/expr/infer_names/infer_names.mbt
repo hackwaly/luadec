@@ -47,22 +47,27 @@ fn usable_name(name : String) -> Bool {
 }
 
 ///|
-fn unique_name(state : NameState, base : String) -> String? {
+fn unique_name_in(used : Map[String, Bool], base : String) -> String? {
   guard usable_name(base) else { return None }
-  if !state.used.get(base).unwrap_or(false) {
-    state.used[base] = true
+  if !used.get(base).unwrap_or(false) {
+    used[base] = true
     return Some(base)
   }
   let mut index = 2
   while true {
     let candidate = "\{base}\{index}"
-    if !state.used.get(candidate).unwrap_or(false) {
-      state.used[candidate] = true
+    if !used.get(candidate).unwrap_or(false) {
+      used[candidate] = true
       return Some(candidate)
     }
     index = index + 1
   }
   None
+}
+
+///|
+fn unique_name(state : NameState, base : String) -> String? {
+  unique_name_in(state.used, base)
 }
 
 ///|
@@ -86,19 +91,33 @@ fn add_var_name(
 }
 
 ///|
-fn add_scoped_var_name(
+fn add_func_param_name(
   state : NameState,
-  value : @ssa.Var,
+  func : @expr.Func,
+  index : Int,
   candidate : String?,
 ) -> Unit {
+  guard index < func.params.length() else { return }
+  let value = func.params[index]
   guard state.vars.get(value) is None else { return }
   match candidate {
-    Some(name) if usable_name(name) => {
-      state.vars[value] = name
-      state.used[name] = true
-      propagate_default_alias_name(state, value, name)
+    Some(base) => {
+      let used : Map[String, Bool] = {}
+      for param in func.params {
+        match state.vars.get(param) {
+          Some(name) => used[name] = true
+          None => ()
+        }
+      }
+      match unique_name_in(used, base) {
+        Some(name) => {
+          state.vars[value] = name
+          propagate_default_alias_name(state, value, name)
+        }
+        None => ()
+      }
     }
-    _ => ()
+    None => ()
   }
 }
 
@@ -339,11 +358,11 @@ fn infer_class_method_names(
   match (key, value) {
     (ConstE(AsciiString(method_name, is_valid_identifier=true)), ClosureE(func)) => {
       if !func.params.is_empty() {
-        add_scoped_var_name(state, func.params[0], Some("self"))
+        add_func_param_name(state, func, 0, Some("self"))
       }
       match setter_parameter_name(method_name) {
         Some(name) if func.params.length() >= 2 =>
-          add_scoped_var_name(state, func.params[1], Some(name))
+          add_func_param_name(state, func, 1, Some(name))
         _ => ()
       }
     }
@@ -468,11 +487,6 @@ fn infer_multi(state : NameState, multi : @expr.Multi) -> Unit {
 fn infer_call(state : NameState, call : @expr.Call) -> Unit {
   match call {
     NormalC(callee, args, multi) => {
-      match callee {
-        VarE(value) if state.var_defs.get(value) is None =>
-          add_scoped_var_name(state, value, Some("callback"))
-        _ => ()
-      }
       infer_expr(state, callee)
       for arg in args {
         infer_expr(state, arg)

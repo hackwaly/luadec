@@ -311,7 +311,7 @@ test "infer_names derives setter parameter names for class methods" {
 }
 
 ///|
-test "infer_names names directly-called values as callbacks" {
+test "infer_names leaves directly-called unknown values unnamed" {
   let callback = value(0)
   let local_callback = value(1)
   inspect(
@@ -331,10 +331,45 @@ test "infer_names names directly-called values as callbacks" {
       @expr.ReturnS([@expr.VarE(callback)], None),
     ]),
     content=(
-      #|callback()
-      #|local next = callback.next
+      #|v0()
+      #|local next = v0.next
       #|next()
-      #|return callback
+      #|return v0
+    ),
+  )
+}
+
+///|
+test "infer_names does not duplicate names for directly-called parameters" {
+  let first = value(0)
+  let second = value(1)
+  inspect(
+    infer_render([
+      @expr.ReturnS(
+        [
+          @expr.ClosureE({
+            params: [first, second],
+            vararg: false,
+            body: [
+              @expr.BindMultiS(
+                [],
+                @expr.CallM(@expr.NormalC(@expr.VarE(first), [], None)),
+              ),
+              @expr.BindMultiS(
+                [],
+                @expr.CallM(@expr.NormalC(@expr.VarE(second), [], None)),
+              ),
+            ],
+          }),
+        ],
+        None,
+      ),
+    ]),
+    content=(
+      #|return function(v0, v1)
+      #|  v0()
+      #|  v1()
+      #|end
     ),
   )
 }
