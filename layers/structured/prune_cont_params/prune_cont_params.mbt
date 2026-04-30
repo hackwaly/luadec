@@ -99,7 +99,13 @@ fn redirect_sources(
 }
 
 ///|
+fn fresh_label(id_gen : @ssa.IdGen) -> @ssa.Label {
+  { id: id_gen.next(), params: [] }
+}
+
+///|
 fn prune_cont(
+  id_gen : @ssa.IdGen,
   sources : Array[Region],
   cont : (@ssa.Label, Region),
 ) -> (Array[Region], (@ssa.Label, Region)?) {
@@ -125,26 +131,31 @@ fn prune_cont(
   let new_label = { ..old_label, params: kept_params }
   let dropper : DropContParams = { old_label, new_label, keep_indices }
   let new_sources = sources.map(fn(region) {
-    prune_region(dropper.visit_Region(region))
+    prune_region(id_gen, dropper.visit_Region(region))
   })
-  let new_cont_region = prune_region(dropper.visit_Region(cont_region))
+  let new_cont_region = prune_region(id_gen, dropper.visit_Region(cont_region))
   (new_sources, Some((new_label, new_cont_region)))
 }
 
 ///|
-fn prune_region(region : Region) -> Region {
+fn prune_region(id_gen : @ssa.IdGen, region : Region) -> Region {
   match region {
-    Linear(stmts, next) => Linear(stmts, prune_region(next))
+    Linear(stmts, next) => Linear(stmts, prune_region(id_gen, next))
     Return(_, _) | Goto(_) => region
     Branch(cond, then_region, else_region) =>
-      Branch(cond, prune_region(then_region), prune_region(else_region))
+      Branch(
+        cond,
+        prune_region(id_gen, then_region),
+        prune_region(id_gen, else_region),
+      )
     If(cond, then_region, else_region, cont) => {
-      let then_region = prune_region(then_region)
-      let cont_region = prune_region(cont.1)
+      let then_region = prune_region(id_gen, then_region)
+      let cont_region = prune_region(id_gen, cont.1)
       match else_region {
         Some(else_region) => {
-          let else_region = prune_region(else_region)
+          let else_region = prune_region(id_gen, else_region)
           let (sources, cont) = prune_cont(
+            id_gen,
             [then_region, else_region],
             (cont.0, cont_region),
           )
@@ -154,20 +165,32 @@ fn prune_region(region : Region) -> Region {
           }
         }
         None => {
-          let (sources, cont) = prune_cont([then_region], (cont.0, cont_region))
+          let original_cont = (cont.0, cont_region)
+          let (sources, cont) = prune_cont(
+            id_gen,
+            [then_region],
+            (cont.0, original_cont.1),
+          )
           match cont {
             Some(cont) => If(cond, sources[0], None, cont)
-            None => sources[0]
+            None => {
+              let empty_cont = (fresh_label(id_gen), original_cont.1)
+              If(cond, sources[0], None, empty_cont)
+            }
           }
         }
       }
     }
     Loop(header, init_args, shape, body, exit_region) => {
-      let body = prune_region(body)
+      let body = prune_region(id_gen, body)
       match exit_region {
         Some((exit_label, exit_region)) => {
-          let exit_region = prune_region(exit_region)
-          let (sources, cont) = prune_cont([body], (exit_label, exit_region))
+          let exit_region = prune_region(id_gen, exit_region)
+          let (sources, cont) = prune_cont(
+            id_gen,
+            [body],
+            (exit_label, exit_region),
+          )
           Loop(header, init_args, shape, sources[0], cont)
         }
         None => Loop(header, init_args, shape, body, None)
@@ -181,7 +204,7 @@ pub fn prune_cont_params(program : Program) -> Program {
   {
     ..program,
     funcs: program.funcs.map(fn(func) {
-      { ..func, body: prune_region(func.body) }
+      { ..func, body: prune_region(program._id_gen, func.body) }
     }),
   }
 }

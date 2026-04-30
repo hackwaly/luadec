@@ -114,6 +114,33 @@ test "prune_cont_params redirects identity forwarding continuation params" {
 }
 
 ///|
+test "prune_cont_params preserves single-arm if guard when redirecting continuation" {
+  let cond = value(0)
+  let effect = value(1)
+  let inner = label(10)
+  let outer = label(11)
+  let body = @structured.If(
+    VarE(cond),
+    Linear([BindS(effect, int(1))], Goto(Target(inner, []))),
+    None,
+    (inner, Goto(Target(outer, []))),
+  )
+
+  inspect(
+    prune_render(body),
+    content=(
+      #|if v0 {
+      #|  local v1 = 1
+      #|  goto B11
+      #|}
+      #|cont B0 {
+      #|  goto B11
+      #|}
+    ),
+  )
+}
+
+///|
 test "prune_cont_params keeps used continuation params" {
   let cond = value(0)
   let live = value(1)
