@@ -141,7 +141,7 @@ async fn pipeline(
     filter~,
     filename="\{inspect_dir}/620_expr_drop_tail_return.lua",
   )
-  |> @expr/infer_names.infer_names
+  |> @expr/infer_names.infer_names_with_filename(filename~)
   |> inspect(
     @expr/render.render_named,
     filter~,

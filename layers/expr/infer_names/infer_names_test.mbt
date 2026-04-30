@@ -28,6 +28,11 @@ fn infer_render(body : @expr.Block) -> String {
 }
 
 ///|
+fn infer_render_with_filename(body : @expr.Block, filename : String) -> String {
+  @expr/render.render_named(infer_names_with_filename(body, filename~))
+}
+
+///|
 test "infer_names names vars from field reads and method calls" {
   let source = value(0)
   let battle_data = value(1)
@@ -81,6 +86,31 @@ test "infer_names names require modules from path basename" {
     content=(
       #|local battleHelper = require("app/module/battle_new/logic/helper/battle_helper")
       #|return battleHelper
+    ),
+  )
+}
+
+///|
+test "infer_names names top-level returned module table from filename" {
+  let table = value(0)
+  inspect(
+    infer_render_with_filename(
+      [
+        @expr.BindS(table, @expr.TableE(@expr.EmptyTI)),
+        @expr.SetIndexS(
+          @expr.VarE(table),
+          key("init"),
+          @expr.ClosureE({ params: [], vararg: false, body: [] }),
+        ),
+        @expr.ReturnS([@expr.VarE(table)], None),
+      ],
+      "app/module/report_ad.lua",
+    ),
+    content=(
+      #|local ReportAd = {}
+      #|ReportAd.init = function()
+      #|end
+      #|return ReportAd
     ),
   )
 }

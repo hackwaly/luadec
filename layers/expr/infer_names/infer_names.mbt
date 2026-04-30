@@ -248,6 +248,41 @@ fn inferred_module_name(path : String) -> String? {
 }
 
 ///|
+fn strip_lua_suffix(name : String) -> String {
+  match name.strip_suffix(".lua.bytes") {
+    Some(base) => base.to_owned()
+    None =>
+      match name.strip_suffix(".lua") {
+        Some(base) => base.to_owned()
+        None => name
+      }
+  }
+}
+
+///|
+fn snake_to_upper_camel(name : String) -> String? {
+  let parts = name.split("_").to_array()
+  let out : Array[Char] = []
+  for part_view in parts {
+    let part = part_view.to_owned()
+    guard !part.is_empty() else { continue }
+    let chars = part.to_array()
+    chars[0] = chars[0].to_ascii_uppercase()
+    for i in 0..<chars.length() {
+      let ch = if i == 0 { chars[i] } else { chars[i].to_ascii_lowercase() }
+      out.push(ch)
+    }
+  }
+  guard !out.is_empty() else { return None }
+  Some(String::from_array(out))
+}
+
+///|
+fn inferred_returned_module_name(filename : String) -> String? {
+  snake_to_upper_camel(strip_lua_suffix(path_basename(filename)))
+}
+
+///|
 fn require_name(args : Array[@expr.Expr]) -> String? {
   match args {
     [ConstE(AsciiString(path, ..))] | [ConstE(Utf8String(path))] =>
@@ -689,6 +724,25 @@ fn infer_block(state : NameState, body : @expr.Block) -> Unit {
 }
 
 ///|
+fn infer_top_returned_module_name(
+  state : NameState,
+  program : @expr.Program,
+  filename : String?,
+) -> Unit {
+  match filename {
+    Some(filename) =>
+      match (program, inferred_returned_module_name(filename)) {
+        ([.., ReturnS([VarE(value)], None)], Some(name)) =>
+          add_var_name(state, value, Some(name))
+        ([.., ReturnS([CellE(cell)], None)], Some(name)) =>
+          add_cell_name(state, cell, Some(name))
+        _ => ()
+      }
+    None => ()
+  }
+}
+
+///|
 fn infer_func(state : NameState, func : @expr.Func) -> Unit {
   state.func_params.push(func.params)
   infer_block(state, func.body)
@@ -696,7 +750,10 @@ fn infer_func(state : NameState, func : @expr.Func) -> Unit {
 }
 
 ///|
-pub fn infer_names(program : @expr.Program) -> @expr.NamedProgram {
+pub fn infer_names_with_filename(
+  program : @expr.Program,
+  filename? : String,
+) -> @expr.NamedProgram {
   let state : NameState = {
     vars: {},
     cells: {},
@@ -706,6 +763,12 @@ pub fn infer_names(program : @expr.Program) -> @expr.NamedProgram {
     var_defs: {},
     func_params: [],
   }
+  infer_top_returned_module_name(state, program, filename)
   infer_block(state, program)
   { program, names: { vars: state.vars, cells: state.cells } }
+}
+
+///|
+pub fn infer_names(program : @expr.Program) -> @expr.NamedProgram {
+  infer_names_with_filename(program)
 }
