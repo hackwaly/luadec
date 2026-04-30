@@ -479,6 +479,38 @@ fn region_is_abrupt_exit(region : @structured.Region) -> Bool {
 }
 
 ///|
+fn region_can_fall_through(region : @structured.Region) -> Bool {
+  match region {
+    Linear(_, next) => region_can_fall_through(next)
+    Return(_, _) => false
+    Branch(_, then_region, else_region) =>
+      region_can_fall_through(then_region) ||
+      region_can_fall_through(else_region)
+    If(_, then_region, else_region, cont) => {
+      let (cont_label, cont_region) = cont
+      guard region_can_fall_through(cont_region) else { return false }
+      if region_can_fall_through(then_region) ||
+        region_targets_label(then_region, cont_label) {
+        return true
+      }
+      match else_region {
+        Some(region) =>
+          region_can_fall_through(region) ||
+          region_targets_label(region, cont_label)
+        None => true
+      }
+    }
+    // Loops without an explicit exit continuation can still finish naturally
+    // (for example, a generic-for with zero iterations) and then fall through
+    // to the enclosing region.
+    Loop(_, _, _, _, None) => true
+    Loop(_, _, _, _, Some((_, exit_region))) =>
+      region_can_fall_through(exit_region)
+    Goto(_) => false
+  }
+}
+
+///|
 fn lower_unknown_loop(
   ctx : LowerCtx,
   header : @ssa.Label,
@@ -659,6 +691,7 @@ fn lower_region(ctx : LowerCtx, region : @structured.Region) -> @expr.Block {
       if else_region is None &&
         label.params.is_empty() &&
         region_is_abrupt_exit(cont_region) &&
+        !region_can_fall_through(then_region) &&
         !region_targets_label(then_region, label) {
         out.push(
           @expr.IfS(

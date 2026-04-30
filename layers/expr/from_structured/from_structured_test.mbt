@@ -331,6 +331,56 @@ test "from_structured lowers goto outer join with abrupt local continuation as g
 }
 
 ///|
+test "from_structured keeps tail continuation after fallthrough single arm if" {
+  let id_gen = @ssa.IdGen::IdGen()
+  let cond = fresh_var(id_gen)
+  let key = fresh_var(id_gen)
+  let value = fresh_var(id_gen)
+  let iter = fresh_var(id_gen)
+  let cont = fresh_label(id_gen, [])
+  let header = fresh_label(id_gen, [])
+  let body = @structured.If(
+    @ssa.VarE(cond),
+    @structured.Loop(
+      header,
+      [],
+      @structured.GenericForLS([key, value], [@ssa.VarE(iter)], None),
+      @structured.Goto(@ssa.Target(header, [])),
+      None,
+    ),
+    None,
+    (cont, @structured.Return([int_expr(1)], None)),
+  )
+
+  match from_program(program_with(id_gen, body)) {
+    [
+      @expr.IfS(
+        [
+          (
+            @expr.VarE(actual_cond),
+            [
+              @expr.GenericForS(
+                [actual_key, actual_value],
+                [@expr.VarE(actual_iter)],
+                None,
+                []
+              ),
+            ],
+          ),
+        ],
+        None
+      ),
+      @expr.ReturnS([@expr.ConstE(Integer(1L))], None),
+    ] => {
+      guard actual_cond == cond else { panic() }
+      guard actual_key == key && actual_value == value else { panic() }
+      guard actual_iter == iter else { panic() }
+    }
+    _ => panic()
+  }
+}
+
+///|
 test "from_structured preserves empty return in loop exit tail continuation" {
   let id_gen = @ssa.IdGen::IdGen()
   let header = fresh_label(id_gen, [])
