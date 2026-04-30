@@ -105,71 +105,85 @@ fn string_key_name(expr : @expr.Expr) -> String? {
 }
 
 ///|
-fn module_name(path : String) -> String? {
-  match path {
-    "app/module/battle_new/logic/helper/battle_passive" => Some("battlePassive")
-    "app/module/battle_new/logic/helper/battle_replay_helper" =>
-      Some("battleReplayHelper")
-    "app/module/battle_new/logic/helper/battle_action_helper" =>
-      Some("battleActionHelper")
-    "app/module/battle_new/logic/helper/battle_pause_helper" =>
-      Some("battlePauseHelper")
-    "app/module/battle_new/logic/helper/battle_helper" => Some("battleHelper")
-    "app/module/battle_new/logic/component/team/battle_team" =>
-      Some("BattleTeam")
-    "app/module/battle_new/logic/helper/battle_multi_helper" =>
-      Some("battleMultiHelper")
-    "app/module/battle_new/logic/handle/battle_rogue_skill_handle" =>
-      Some("battleRogueSkillHandle")
-    "app/module/battle_new/logic/helper/battle_base_instr_helper" =>
-      Some("battleBaseInstrHelper")
-    "app/module/battle_new/logic/helper/battle_instructions_helper" =>
-      Some("battleInstructionsHelper")
-    "app/module/battle_new/logic/helper/battle_buff_handle" =>
-      Some("battleBuffHandle")
-    "app/module/battle_new/logic/helper/battle_formula" => Some("battleFormula")
-    "app/module/battle_new/const/battle_version" => Some("battleVersion")
-    "app/module/battle_new/logic/handle/battle_grid_effect_handle" =>
-      Some("battleGridEffectHandle")
-    "app/module/battle_new/const/battle_const" => Some("battleConst")
-    _ => None
+fn lower_first(name : String) -> String? {
+  guard !name.is_empty() else { return None }
+  let chars = name.to_array()
+  chars[0] = chars[0].to_ascii_lowercase()
+  Some(String::from_array(chars))
+}
+
+///|
+fn snake_to_lower_camel(name : String) -> String? {
+  let parts = name.split("_").to_array()
+  let out : Array[Char] = []
+  let mut first = true
+  for part_view in parts {
+    let part = part_view.to_owned()
+    guard !part.is_empty() else { continue }
+    let chars = part.to_array()
+    if first {
+      for ch in chars {
+        out.push(ch.to_ascii_lowercase())
+      }
+      first = false
+    } else {
+      chars[0] = chars[0].to_ascii_uppercase()
+      for i in 0..<chars.length() {
+        let ch = if i == 0 { chars[i] } else { chars[i].to_ascii_lowercase() }
+        out.push(ch)
+      }
+    }
   }
+  guard !out.is_empty() else { return None }
+  Some(String::from_array(out))
+}
+
+///|
+fn path_basename(path : String) -> String {
+  match path.rev_split_once("/") {
+    Some((_, base)) => base.to_owned()
+    None => path
+  }
+}
+
+///|
+fn inferred_module_name(path : String) -> String? {
+  snake_to_lower_camel(path_basename(path))
 }
 
 ///|
 fn require_name(args : Array[@expr.Expr]) -> String? {
   match args {
     [ConstE(AsciiString(path, ..))] | [ConstE(Utf8String(path))] =>
-      module_name(path)
+      inferred_module_name(path)
     _ => None
   }
 }
 
 ///|
-fn method_result_name(method_name : String) -> String? {
-  match method_name {
-    "getAtkTeam" => Some("atkTeam")
-    "getDefTeam" => Some("defTeam")
-    "getMultiTeam" => Some("multiTeam")
-    "getGridEnties" => Some("gridEnties")
-    "getCurActionMainUnit" => Some("curActionMainUnit")
-    "getCurActionSide" => Some("curActionSide")
-    "getMainUnit" => Some("mainUnit")
-    "getSoulUnit" => Some("soulUnit")
-    "getRandomSkillList" => Some("randomSkillList")
-    "getFirstHand" => Some("firstHand")
-    "getDeathSummon" => Some("deathSummon")
-    "getTotalRoundCount" => Some("totalRoundCount")
-    "getBuffEntity" => Some("buffEntity")
-    "getTargetSide" => Some("targetSide")
-    "getDamageCount" => Some("damageCount")
-    "getHpPercent" => Some("hpPercent")
-    "getHp" => Some("hp")
-    "isTopHalf" => Some("isTopHalf")
-    "isMultiPlayerBattle" => Some("isMultiPlayerBattle")
-    "isInited" => Some("isInited")
-    "loadingBattle" => Some("loadingBattle")
-    _ => None
+fn strip_method_prefix(name : String) -> String? {
+  for prefix in ["get", "create", "make", "new", "find"] {
+    match name.strip_prefix(prefix) {
+      Some(rest) if !rest.is_empty() => return Some(rest.to_owned())
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn inferred_method_result_name(method_name : String) -> String? {
+  match strip_method_prefix(method_name) {
+    Some(rest) => lower_first(rest)
+    None =>
+      if method_name.has_prefix("is") ||
+        method_name.has_prefix("has") ||
+        method_name.has_prefix("can") ||
+        method_name.has_prefix("should") {
+        Some(method_name)
+      } else {
+        None
+      }
   }
 }
 
@@ -193,7 +207,7 @@ fn multi_name(multi : @expr.Multi) -> String? {
 ///|
 fn call_name(call : @expr.Call) -> String? {
   match call {
-    MethodC(_, method_name, _, _) => method_result_name(method_name)
+    MethodC(_, method_name, _, _) => inferred_method_result_name(method_name)
     NormalC(callee, args, _) =>
       match callee {
         IndexE(CellE(cell), ConstE(AsciiString("require", ..))) if cell.is_env() =>

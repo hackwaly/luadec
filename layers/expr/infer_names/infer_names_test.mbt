@@ -55,7 +55,7 @@ test "infer_names names vars from field reads and method calls" {
 }
 
 ///|
-test "infer_names names require modules from known paths" {
+test "infer_names names require modules from path basename" {
   let loaded = value(0)
   inspect(
     infer_render([
@@ -81,6 +81,58 @@ test "infer_names names require modules from known paths" {
     content=(
       #|local battleHelper = require("app/module/battle_new/logic/helper/battle_helper")
       #|return battleHelper
+    ),
+  )
+}
+
+///|
+test "infer_names derives method result names from accessors" {
+  let source = value(0)
+  let manager = value(1)
+  inspect(
+    infer_render([
+      @expr.BindS(
+        manager,
+        @expr.CallE(
+          @expr.MethodC(@expr.VarE(source), "getInventoryManager", [], None),
+        ),
+      ),
+      @expr.ReturnS([@expr.VarE(manager)], None),
+    ]),
+    content=(
+      #|local inventoryManager = v0:getInventoryManager()
+      #|return inventoryManager
+    ),
+  )
+}
+
+///|
+test "infer_names names require modules from generic paths" {
+  let loaded = value(0)
+  inspect(
+    infer_render([
+      @expr.BindS(
+        loaded,
+        @expr.CallE(
+          @expr.NormalC(
+            @expr.IndexE(@expr.CellE(@ssa.Cell::env()), key("require")),
+            [
+              @expr.ConstE(
+                AsciiString(
+                  "gameplay/inventory/item_config_loader",
+                  is_valid_identifier=false,
+                ),
+              ),
+            ],
+            None,
+          ),
+        ),
+      ),
+      @expr.ReturnS([@expr.VarE(loaded)], None),
+    ]),
+    content=(
+      #|local itemConfigLoader = require("gameplay/inventory/item_config_loader")
+      #|return itemConfigLoader
     ),
   )
 }
