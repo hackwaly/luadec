@@ -45,7 +45,7 @@ fn build_owned_cells(
   let add_owned = fn(place : @canonical_cfg.Local) -> Unit {
     match captures.places.get(place) {
       Some(CellCapture) =>
-        if place.func == { index: func.index } && !contains_place(owned, place) {
+        if place.func == { index: func.index, } && !contains_place(owned, place) {
           owned.push(place)
         }
       _ => ()
@@ -66,13 +66,13 @@ fn build_owned_cells(
   }
 
   let cells : Array[Cell] = []
-  let cell_map : Map[@canonical_cfg.Local, Cell] = {}
+  let cell_map : Map[@canonical_cfg.Local, Cell] = Map([])
   for i in 0..<owned.length() {
-    let cell : Cell = { id: id_gen.next() }
+    let cell : Cell = { id: id_gen.next(), }
     cells.push(cell)
     cell_map[owned[i]] = cell
   }
-  { places: owned, cells, cell_map }
+  { places: owned, cells, cell_map, }
 }
 
 ///|
@@ -80,9 +80,9 @@ fn build_labels(
   cfg : CfgInfo,
   id_gen : IdGen,
 ) -> Map[@canonical_cfg.Label, Label] {
-  let labels : Map[@canonical_cfg.Label, Label] = {}
+  let labels : Map[@canonical_cfg.Label, Label] = Map([])
   for label in cfg.labels {
-    labels[label] = { id: id_gen.next(), params: [] }
+    labels[label] = { id: id_gen.next(), params: [], }
   }
   labels
 }
@@ -112,5 +112,5 @@ fn plan_program(
   program : @canonical_cfg.Program,
   id_gen : IdGen,
 ) -> ProgramPlan {
-  { funcs: program.funcs.map(fn(func) { plan_func(program, func, id_gen) }) }
+  { funcs: program.funcs.map(fn(func) { plan_func(program, func, id_gen) }), }
 }

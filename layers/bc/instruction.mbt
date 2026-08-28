@@ -20,5 +20,5 @@ pub fn Instruction::Instruction(raw : UInt) -> Instruction {
   let bx = ((raw >> 14) & 0x3FFFFU).reinterpret_as_int()
   let ax = (raw >> 6).reinterpret_as_int()
   let sbx = bx - 131071
-  { op, a, ax, b, bx, sbx, c }
+  { op, a, ax, b, bx, sbx, c, }
 }

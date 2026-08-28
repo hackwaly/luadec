@@ -1,20 +1,20 @@
 ///|
 pub(open) trait IterVisitor {
-  base(Self) -> IterVisitorBase[Self] = _
-  visit_Program(Self, Program) -> Unit = _
-  visit_Func(Self, Func) -> Unit = _
-  visit_Region(Self, Region) -> Unit = _
-  visit_Region_Linear(Self, stmts~ : Array[Stmt], next~ : Region) -> Unit = _
-  visit_Region_Return(Self, values~ : Array[Expr], multi~ : Multi?) -> Unit = _
-  visit_Region_Branch(Self, cond~ : Expr, then_~ : Region, else_~ : Region) -> Unit = _
-  visit_Region_If(
+  fn base(Self) -> IterVisitorBase[Self] = _
+  fn visit_Program(Self, Program) -> Unit = _
+  fn visit_Func(Self, Func) -> Unit = _
+  fn visit_Region(Self, Region) -> Unit = _
+  fn visit_Region_Linear(Self, stmts~ : Array[Stmt], next~ : Region) -> Unit = _
+  fn visit_Region_Return(Self, values~ : Array[Expr], multi~ : Multi?) -> Unit = _
+  fn visit_Region_Branch(Self, cond~ : Expr, then_~ : Region, else_~ : Region) -> Unit = _
+  fn visit_Region_If(
     Self,
     cond~ : Expr,
     then_~ : Region,
     else_~ : Region?,
     cont~ : (Label, Region),
   ) -> Unit = _
-  visit_Region_Loop(
+  fn visit_Region_Loop(
     Self,
     header~ : Label,
     init_args~ : Array[Expr],
@@ -22,75 +22,75 @@ pub(open) trait IterVisitor {
     body~ : Region,
     exit_region~ : (Label, Region)?,
   ) -> Unit = _
-  visit_Region_Goto(Self, target~ : Target) -> Unit = _
-  visit_LoopShape(Self, LoopShape) -> Unit = _
-  visit_LoopShape_UnknownLS(Self) -> Unit = _
-  visit_LoopShape_NumericForLS(
+  fn visit_Region_Goto(Self, target~ : Target) -> Unit = _
+  fn visit_LoopShape(Self, LoopShape) -> Unit = _
+  fn visit_LoopShape_UnknownLS(Self) -> Unit = _
+  fn visit_LoopShape_NumericForLS(
     Self,
     value~ : Var,
     init~ : Expr,
     limit~ : Expr,
     step~ : Expr,
   ) -> Unit = _
-  visit_LoopShape_GenericForLS(
+  fn visit_LoopShape_GenericForLS(
     Self,
     vars~ : Array[Var],
     exprs~ : Array[Expr],
     multi~ : Multi?,
   ) -> Unit = _
-  visit_Stmt(Self, Stmt) -> Unit = _
-  visit_Expr(Self, Expr) -> Unit = _
-  visit_Target(Self, Target) -> Unit = _
-  visit_Multi(Self, Multi) -> Unit = _
-  visit_Call(Self, @ssa.Call) -> Unit = _
-  visit_TableInit(Self, @ssa.TableInit) -> Unit = _
-  visit_Var(Self, Var) -> Unit = _
-  visit_Cell(Self, Cell) -> Unit = _
-  visit_Label(Self, Label) -> Unit = _
+  fn visit_Stmt(Self, Stmt) -> Unit = _
+  fn visit_Expr(Self, Expr) -> Unit = _
+  fn visit_Target(Self, Target) -> Unit = _
+  fn visit_Multi(Self, Multi) -> Unit = _
+  fn visit_Call(Self, @ssa.Call) -> Unit = _
+  fn visit_TableInit(Self, @ssa.TableInit) -> Unit = _
+  fn visit_Var(Self, Var) -> Unit = _
+  fn visit_Cell(Self, Cell) -> Unit = _
+  fn visit_Label(Self, Label) -> Unit = _
 }
 
 ///|
-impl IterVisitor with base(self) -> IterVisitorBase[Self] {
+impl IterVisitor with fn base(self) -> IterVisitorBase[Self] {
   IterVisitorBase::IterVisitorBase(self)
 }
 
 ///|
-impl IterVisitor with visit_Program(env, program) {
+impl IterVisitor with fn visit_Program(env, program) {
   IterVisitorBase::visit_Program(env, program)
 }
 
 ///|
-impl IterVisitor with visit_Func(env, func) {
+impl IterVisitor with fn visit_Func(env, func) {
   IterVisitorBase::visit_Func(env, func)
 }
 
 ///|
-impl IterVisitor with visit_Region(env, region) {
+impl IterVisitor with fn visit_Region(env, region) {
   IterVisitorBase::visit_Region(env, region)
 }
 
 ///|
-impl IterVisitor with visit_Region_Linear(env, stmts~, next~) {
+impl IterVisitor with fn visit_Region_Linear(env, stmts~, next~) {
   IterVisitorBase::visit_Region_Linear(env, stmts~, next~)
 }
 
 ///|
-impl IterVisitor with visit_Region_Return(env, values~, multi~) {
+impl IterVisitor with fn visit_Region_Return(env, values~, multi~) {
   IterVisitorBase::visit_Region_Return(env, values~, multi~)
 }
 
 ///|
-impl IterVisitor with visit_Region_Branch(env, cond~, then_~, else_~) {
+impl IterVisitor with fn visit_Region_Branch(env, cond~, then_~, else_~) {
   IterVisitorBase::visit_Region_Branch(env, cond~, then_~, else_~)
 }
 
 ///|
-impl IterVisitor with visit_Region_If(env, cond~, then_~, else_~, cont~) {
+impl IterVisitor with fn visit_Region_If(env, cond~, then_~, else_~, cont~) {
   IterVisitorBase::visit_Region_If(env, cond~, then_~, else_~, cont~)
 }
 
 ///|
-impl IterVisitor with visit_Region_Loop(
+impl IterVisitor with fn visit_Region_Loop(
   env,
   header~,
   init_args~,
@@ -109,22 +109,22 @@ impl IterVisitor with visit_Region_Loop(
 }
 
 ///|
-impl IterVisitor with visit_Region_Goto(env, target~) {
+impl IterVisitor with fn visit_Region_Goto(env, target~) {
   IterVisitorBase::visit_Region_Goto(env, target~)
 }
 
 ///|
-impl IterVisitor with visit_LoopShape(env, shape) {
+impl IterVisitor with fn visit_LoopShape(env, shape) {
   IterVisitorBase::visit_LoopShape(env, shape)
 }
 
 ///|
-impl IterVisitor with visit_LoopShape_UnknownLS(env) {
+impl IterVisitor with fn visit_LoopShape_UnknownLS(env) {
   IterVisitorBase::visit_LoopShape_UnknownLS(env)
 }
 
 ///|
-impl IterVisitor with visit_LoopShape_NumericForLS(
+impl IterVisitor with fn visit_LoopShape_NumericForLS(
   env,
   value~,
   init~,
@@ -141,52 +141,57 @@ impl IterVisitor with visit_LoopShape_NumericForLS(
 }
 
 ///|
-impl IterVisitor with visit_LoopShape_GenericForLS(env, vars~, exprs~, multi~) {
+impl IterVisitor with fn visit_LoopShape_GenericForLS(
+  env,
+  vars~,
+  exprs~,
+  multi~,
+) {
   IterVisitorBase::visit_LoopShape_GenericForLS(env, vars~, exprs~, multi~)
 }
 
 ///|
-impl IterVisitor with visit_Stmt(env, stmt) {
+impl IterVisitor with fn visit_Stmt(env, stmt) {
   IterVisitorBase::visit_Stmt(env, stmt)
 }
 
 ///|
-impl IterVisitor with visit_Expr(env, expr) {
+impl IterVisitor with fn visit_Expr(env, expr) {
   IterVisitorBase::visit_Expr(env, expr)
 }
 
 ///|
-impl IterVisitor with visit_Target(env, target) {
+impl IterVisitor with fn visit_Target(env, target) {
   IterVisitorBase::visit_Target(env, target)
 }
 
 ///|
-impl IterVisitor with visit_Multi(env, multi) {
+impl IterVisitor with fn visit_Multi(env, multi) {
   IterVisitorBase::visit_Multi(env, multi)
 }
 
 ///|
-impl IterVisitor with visit_Call(env, call) {
+impl IterVisitor with fn visit_Call(env, call) {
   IterVisitorBase::visit_Call(env, call)
 }
 
 ///|
-impl IterVisitor with visit_TableInit(env, init) {
+impl IterVisitor with fn visit_TableInit(env, init) {
   IterVisitorBase::visit_TableInit(env, init)
 }
 
 ///|
-impl IterVisitor with visit_Var(env, value) {
+impl IterVisitor with fn visit_Var(env, value) {
   IterVisitorBase::visit_Var(env, value)
 }
 
 ///|
-impl IterVisitor with visit_Cell(env, cell) {
+impl IterVisitor with fn visit_Cell(env, cell) {
   IterVisitorBase::visit_Cell(env, cell)
 }
 
 ///|
-impl IterVisitor with visit_Label(env, label) {
+impl IterVisitor with fn visit_Label(env, label) {
   IterVisitorBase::visit_Label(env, label)
 }
 
@@ -202,7 +207,7 @@ fn[T] ssa_iter_base(env : T) -> @ssa.IterVisitorBase[SsaIterAdapter[T]] {
 }
 
 ///|
-impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_Stmt(
+impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with fn visit_Stmt(
   env,
   stmt,
 ) {
@@ -210,7 +215,7 @@ impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_Stmt(
 }
 
 ///|
-impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_Expr(
+impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with fn visit_Expr(
   env,
   expr,
 ) {
@@ -218,7 +223,7 @@ impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_Expr(
 }
 
 ///|
-impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_Target(
+impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with fn visit_Target(
   env,
   target,
 ) {
@@ -226,7 +231,7 @@ impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_Target(
 }
 
 ///|
-impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_Multi(
+impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with fn visit_Multi(
   env,
   multi,
 ) {
@@ -234,7 +239,7 @@ impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_Multi(
 }
 
 ///|
-impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_Call(
+impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with fn visit_Call(
   env,
   call,
 ) {
@@ -242,7 +247,7 @@ impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_Call(
 }
 
 ///|
-impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_TableInit(
+impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with fn visit_TableInit(
   env,
   init,
 ) {
@@ -250,7 +255,7 @@ impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_TableIni
 }
 
 ///|
-impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_Var(
+impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with fn visit_Var(
   env,
   value,
 ) {
@@ -258,7 +263,7 @@ impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_Var(
 }
 
 ///|
-impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_Cell(
+impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with fn visit_Cell(
   env,
   cell,
 ) {
@@ -266,7 +271,7 @@ impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_Cell(
 }
 
 ///|
-impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_Label(
+impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with fn visit_Label(
   env,
   label,
 ) {
@@ -274,7 +279,7 @@ impl[T : IterVisitor] @ssa.IterVisitor for SsaIterAdapter[T] with visit_Label(
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Program(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Program(
   env,
   program,
 ) {
@@ -284,7 +289,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Program(
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Func(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Func(
   env,
   func,
 ) {
@@ -298,7 +303,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Func(
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Region(
   env,
   region,
 ) {
@@ -327,7 +332,7 @@ fn[T : IterVisitor] iter_visit_cont(env : T, cont : (Label, Region)?) -> Unit {
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region_Linear(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Region_Linear(
   env,
   stmts~,
   next~,
@@ -339,7 +344,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region_L
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region_Return(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Region_Return(
   env,
   values~,
   multi~,
@@ -354,7 +359,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region_R
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region_Branch(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Region_Branch(
   env,
   cond~,
   then_~,
@@ -366,7 +371,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region_B
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region_If(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Region_If(
   env,
   cond~,
   then_~,
@@ -385,7 +390,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region_I
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region_Loop(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Region_Loop(
   env,
   header~,
   init_args~,
@@ -403,7 +408,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region_L
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region_Goto(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Region_Goto(
   env,
   target~,
 ) {
@@ -411,7 +416,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Region_G
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_LoopShape(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_LoopShape(
   env,
   shape,
 ) {
@@ -425,14 +430,14 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_LoopShap
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_LoopShape_UnknownLS(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_LoopShape_UnknownLS(
   _env,
 ) {
   ()
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_LoopShape_NumericForLS(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_LoopShape_NumericForLS(
   env,
   value~,
   init~,
@@ -446,7 +451,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_LoopShap
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_LoopShape_GenericForLS(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_LoopShape_GenericForLS(
   env,
   vars~,
   exprs~,
@@ -465,7 +470,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_LoopShap
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Stmt(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Stmt(
   env,
   stmt,
 ) {
@@ -473,7 +478,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Stmt(
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Expr(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Expr(
   env,
   expr,
 ) {
@@ -481,7 +486,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Expr(
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Target(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Target(
   env,
   target,
 ) {
@@ -489,7 +494,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Target(
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Multi(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Multi(
   env,
   multi,
 ) {
@@ -497,7 +502,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Multi(
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Call(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Call(
   env,
   call,
 ) {
@@ -505,7 +510,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Call(
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_TableInit(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_TableInit(
   env,
   init,
 ) {
@@ -513,7 +518,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_TableIni
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Var(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Var(
   _env,
   _value,
 ) {
@@ -521,7 +526,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Var(
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Cell(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Cell(
   _env,
   _cell,
 ) {
@@ -529,7 +534,7 @@ pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Cell(
 }
 
 ///|
-pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with visit_Label(
+pub impl[T : IterVisitor] IterVisitor for IterVisitorBase[T] with fn visit_Label(
   _env,
   _label,
 ) {

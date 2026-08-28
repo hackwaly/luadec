@@ -54,7 +54,7 @@ fn push_unique_place(
 
 ///|
 fn ssa_func_id(id : @canonical_cfg.FuncId) -> FuncId {
-  { index: id.index }
+  { index: id.index, }
 }
 
 ///|
@@ -163,9 +163,12 @@ fn scan_func(
 ) -> ScanSummary {
   let cfg = plans.funcs[func.index].cfg
   let tracked_places : Array[@canonical_cfg.Local] = []
-  let def_blocks : Map[@canonical_cfg.Local, Array[@canonical_cfg.Label]] = {}
-  let block_defs : Map[@canonical_cfg.Label, Array[@canonical_cfg.Local]] = {}
-  let upward_uses : Map[@canonical_cfg.Label, Array[@canonical_cfg.Local]] = {}
+  let def_blocks : Map[@canonical_cfg.Local, Array[@canonical_cfg.Label]] = Map([],
+  )
+  let block_defs : Map[@canonical_cfg.Label, Array[@canonical_cfg.Local]] = Map([],
+  )
+  let upward_uses : Map[@canonical_cfg.Label, Array[@canonical_cfg.Local]] = Map([],
+  )
 
   let add_tracked = fn(place : @canonical_cfg.Local) -> Unit {
     if resolve_storage(plans, place) is VarPS {
@@ -207,7 +210,7 @@ fn scan_func(
   for label in cfg.labels {
     let defs : Array[@canonical_cfg.Local] = []
     let upward : Array[@canonical_cfg.Local] = []
-    let defined_here : Map[@canonical_cfg.Local, Bool] = {}
+    let defined_here : Map[@canonical_cfg.Local, Bool] = Map([])
     match func.blocks.get(label) {
       Some(block) => {
         for stmt in block.stmts {
@@ -296,7 +299,7 @@ fn scan_func(
     upward_uses[label] = upward
   }
 
-  { tracked_places, def_blocks, block_defs, upward_uses }
+  { tracked_places, def_blocks, block_defs, upward_uses, }
 }
 
 ///|
@@ -317,7 +320,7 @@ fn compute_live_in(
   cfg : CfgInfo,
   place : @canonical_cfg.Local,
 ) -> Map[@canonical_cfg.Label, Bool] {
-  let live_in : Map[@canonical_cfg.Label, Bool] = {}
+  let live_in : Map[@canonical_cfg.Label, Bool] = Map([])
   let worklist : Array[@canonical_cfg.Label] = []
   for label in cfg.labels {
     match summary.upward_uses.get(label) {
@@ -347,7 +350,7 @@ fn compute_live_in(
 fn build_dom_children(
   dom : DomTree,
 ) -> Map[@canonical_cfg.Label, Array[@canonical_cfg.Label]] {
-  let children : Map[@canonical_cfg.Label, Array[@canonical_cfg.Label]] = {}
+  let children : Map[@canonical_cfg.Label, Array[@canonical_cfg.Label]] = Map([])
   for label in dom.preorder {
     children[label] = []
   }
@@ -373,7 +376,7 @@ fn build_dom_frontier(
   dom : DomTree,
   children : Map[@canonical_cfg.Label, Array[@canonical_cfg.Label]],
 ) -> Map[@canonical_cfg.Label, Array[@canonical_cfg.Label]] {
-  let frontier : Map[@canonical_cfg.Label, Array[@canonical_cfg.Label]] = {}
+  let frontier : Map[@canonical_cfg.Label, Array[@canonical_cfg.Label]] = Map([])
 
   letrec visit = fn(
     label : @canonical_cfg.Label,
@@ -418,15 +421,15 @@ fn place_block_params(
   summary : ScanSummary,
   frontier : Map[@canonical_cfg.Label, Array[@canonical_cfg.Label]],
 ) -> Map[@canonical_cfg.Label, Array[@canonical_cfg.Local]] {
-  let params : Map[@canonical_cfg.Label, Array[@canonical_cfg.Local]] = {}
+  let params : Map[@canonical_cfg.Label, Array[@canonical_cfg.Local]] = Map([])
   for label in cfg.labels {
     params[label] = []
   }
   for place in summary.tracked_places {
     let live_in = compute_live_in(summary, cfg, place)
     let worklist : Array[@canonical_cfg.Label] = []
-    let queued : Map[@canonical_cfg.Label, Bool] = {}
-    let placed : Map[@canonical_cfg.Label, Bool] = {}
+    let queued : Map[@canonical_cfg.Label, Bool] = Map([])
+    let placed : Map[@canonical_cfg.Label, Bool] = Map([])
     match summary.def_blocks.get(place) {
       Some(labels) =>
         for label in labels {
@@ -491,9 +494,9 @@ fn build_ssa_func(
   let frontier = build_dom_frontier(cfg, dom, children)
   let block_param_places = place_block_params(cfg, summary, frontier)
 
-  let fresh_value = fn() -> Var { { id: id_gen.next() } }
+  let fresh_value = fn() -> Var { { id: id_gen.next(), } }
 
-  let stacks : Map[@canonical_cfg.Local, Array[Binding]] = {}
+  let stacks : Map[@canonical_cfg.Local, Array[Binding]] = Map([])
   let push_binding = fn(
     place : @canonical_cfg.Local,
     binding : Binding,
@@ -537,7 +540,7 @@ fn build_ssa_func(
     }
   }
   let owned_cell = fn(place : @canonical_cfg.Local) -> Cell? {
-    if place.func == { index: func.index } {
+    if place.func == { index: func.index, } {
       func_plan.cell_map.get(place)
     } else {
       None
@@ -581,7 +584,7 @@ fn build_ssa_func(
   guard capture_var_index == capture_vars.length() else { panic() }
   guard capture_cell_index == capture_cells.length() else { panic() }
 
-  let block_param_values : Map[@canonical_cfg.Label, Array[Var]] = {}
+  let block_param_values : Map[@canonical_cfg.Label, Array[Var]] = Map([])
   for label in cfg.labels {
     let values : Array[Var] = []
     match block_param_places.get(label) {
@@ -645,7 +648,7 @@ fn build_ssa_func(
         }
       }
     }
-    closure_bindings[id] = { vars, cells }
+    closure_bindings[id] = { vars, cells, }
     registered_children.push(id)
     vars
   }
@@ -736,7 +739,7 @@ fn build_ssa_func(
       None => ()
     }
     let base_label = ssa_label(plans, label)
-    Target({ id: base_label.id, params }, args)
+    Target({ id: base_label.id, params, }, args)
   }
 
   let mut blocks : SortedMap[Label, Block] = SortedMap::new()
@@ -860,8 +863,8 @@ fn build_ssa_func(
           Some(values) => values
           None => []
         }
-        let ssa_block_label : Label = { id: base_label.id, params }
-        blocks = blocks.add(ssa_block_label, { stmts, term })
+        let ssa_block_label : Label = { id: base_label.id, params, }
+        blocks = blocks.add(ssa_block_label, { stmts, term, })
       }
       None => panic()
     }

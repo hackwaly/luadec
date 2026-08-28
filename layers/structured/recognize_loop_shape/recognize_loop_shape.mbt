@@ -47,7 +47,7 @@ priv struct GenericInit {
 }
 
 ///|
-impl @structured.MapVisitor for RedirectContinue with visit_Region_Goto(
+impl @structured.MapVisitor for RedirectContinue with fn visit_Region_Goto(
   self,
   target~,
 ) {
@@ -60,7 +60,7 @@ impl @structured.MapVisitor for RedirectContinue with visit_Region_Goto(
 }
 
 ///|
-impl @structured.MapVisitor for DropLoopControl with visit_Region_Goto(
+impl @structured.MapVisitor for DropLoopControl with fn visit_Region_Goto(
   self,
   target~,
 ) {
@@ -181,7 +181,7 @@ fn recognize_shape(
 }
 
 ///|
-impl @structured.MapVisitor for Recognizer with visit_Region_Loop(
+impl @structured.MapVisitor for Recognizer with fn visit_Region_Loop(
   self,
   header~,
   init_args~,
@@ -202,7 +202,7 @@ impl @structured.MapVisitor for Recognizer with visit_Region_Loop(
 }
 
 ///|
-impl @structured.MapVisitor for Recognizer with visit_Region_Linear(
+impl @structured.MapVisitor for Recognizer with fn visit_Region_Linear(
   self,
   stmts~,
   next~,
@@ -227,6 +227,28 @@ impl @structured.MapVisitor for Recognizer with visit_Region_Linear(
 
 ///|
 pub fn recognize_loop_shape(program : Program) -> Program {
-  let recognizer : Recognizer = { _unit: () }
+  let recognizer : Recognizer = { _unit: (), }
   recognizer.visit_Program(program)
+}
+
+///|
+extend Recognizer with @structured.MapVisitor::{
+  visit_Region,
+  visit_LoopShape,
+  visit_Stmt,
+  visit_Program,
+}
+
+///|
+extend RedirectContinue with @structured.MapVisitor::{
+  visit_Expr,
+  visit_Target,
+  visit_Region,
+}
+
+///|
+extend DropLoopControl with @structured.MapVisitor::{
+  visit_Expr,
+  visit_Target,
+  visit_Region,
 }

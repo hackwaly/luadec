@@ -3,12 +3,12 @@ using @immut/sorted_map {type SortedMap}
 
 ///|
 fn cfg_local(func : Int, index : Int) -> @canonical_cfg.Local {
-  { func: { index: func }, index }
+  { func: { index: func, }, index, }
 }
 
 ///|
 fn label(func : Int, index : Int) -> @canonical_cfg.Label {
-  { func: { index: func }, index }
+  { func: { index: func, }, index, }
 }
 
 ///|
@@ -79,7 +79,7 @@ test "cell-captured local stays SSA before closure capture" {
       AssignS(method_value, IndexE(LocalE(self), key("removeEventListener"))),
       AssignMultiS([], CallM(LocalE(method_value), [LocalE(slot)], None)),
       AssignS(slot, int(2)),
-      AssignS(closure, ClosureE({ index: 1 })),
+      AssignS(closure, ClosureE({ index: 1, })),
     ],
     term: ReturnT([LocalE(closure)], None),
   })
@@ -109,7 +109,7 @@ test "cell-captured local stays SSA before closure capture" {
         entry: child_entry,
       },
     ],
-    main: { index: 0 },
+    main: { index: 0, },
   }
 
   let ssa = from_canonical_cfg(program)
@@ -123,7 +123,7 @@ test "cell-captured local stays SSA before closure capture" {
       BindMultiS(_, CallM(NormalC(VarE(_), [VarE(_)], None))),
       BindS(counter, ConstE(Integer(2L))),
       StoreCellS(actual_cell, VarE(actual_counter)),
-      BindS(_, ClosureE({ index: 1 }, [])),
+      BindS(_, ClosureE({ index: 1, }, [])),
     ] => {
       guard actual_cell == captured_cell else { panic() }
       guard actual_counter == counter else { panic() }

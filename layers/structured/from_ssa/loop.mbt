@@ -63,7 +63,7 @@ fn build_loop_region(
   let exit_label = get_structured_loop_exit(ctx, loop_info)
   let (body_ctx, exit_region) : (LoweringContext, (@ssa.Label, Region)?) = if exit_label ==
     ctx.synthetic_exit {
-    ({ ..ctx, conts: ctx.conts.add(header).add(exit_label) }, None)
+    ({ ..ctx, conts: ctx.conts.add(header).add(exit_label), }, None)
   } else if ctx.conts.contains(exit_label) {
     let bridge_label = fresh_label_like(ctx.id_gen, exit_label)
     let cont_target = bridge_cont_target(ctx, exit_label, bridge_label)
@@ -80,7 +80,7 @@ fn build_loop_region(
     )
   } else {
     (
-      { ..ctx, conts: ctx.conts.add(header).add(exit_label) },
+      { ..ctx, conts: ctx.conts.add(header).add(exit_label), },
       Some((exit_label, build_region(ctx, exit_label))),
     )
   }

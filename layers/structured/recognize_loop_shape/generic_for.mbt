@@ -110,7 +110,7 @@ fn try_match_generic_init_from(
     }
   }
   if target_index == targets.length() {
-    Some({ remaining_stmts: take_stmts(stmts, start), exprs, multi: None })
+    Some({ remaining_stmts: take_stmts(stmts, start), exprs, multi: None, })
   } else {
     None
   }
@@ -168,8 +168,8 @@ fn recognize_generic_for(
         ctrl == header.params[header.params.length() - 1] &&
         exits_loop(else_region, exit_region) &&
         is_identity_jump(cont_region, cont_label, header) {
-        let redirect : RedirectContinue = { from: cont_label, to: header }
-        Some({ vars, iter, state, body: redirect.visit_Region(then_region) })
+        let redirect : RedirectContinue = { from: cont_label, to: header, }
+        Some({ vars, iter, state, body: redirect.visit_Region(then_region), })
       } else {
         None
       }
@@ -195,8 +195,8 @@ fn recognize_generic_loop(
     Some(init) => init
     None => return None
   }
-  let new_header = { ..header, params: drop_last_vars(header.params) }
-  let dropper : DropLoopControl = { old_header: header, new_header }
+  let new_header = { ..header, params: drop_last_vars(header.params), }
+  let dropper : DropLoopControl = { old_header: header, new_header, }
   let loop_region = @structured.Loop(
     new_header,
     drop_last_exprs(init_args),

@@ -4,7 +4,7 @@ priv struct CopyCollector {
 }
 
 ///|
-impl @ssa.IterVisitor for CopyCollector with visit_Stmt_BindS(
+impl @ssa.IterVisitor for CopyCollector with fn visit_Stmt_BindS(
   self,
   value~,
   expr~,
@@ -17,7 +17,7 @@ impl @ssa.IterVisitor for CopyCollector with visit_Stmt_BindS(
 
 ///|
 fn collect_copy_map(program : @ssa.Program) -> Map[@ssa.Var, @ssa.Var] {
-  let collector : CopyCollector = { copies: {} }
+  let collector : CopyCollector = { copies: {}, }
   collector.visit_Program(program)
   collector.copies
 }
@@ -28,7 +28,10 @@ priv struct CopyRewriteVisitor {
 }
 
 ///|
-impl @ssa.MapVisitor for CopyRewriteVisitor with visit_Expr_VarE(self, value~) {
+impl @ssa.MapVisitor for CopyRewriteVisitor with fn visit_Expr_VarE(
+  self,
+  value~,
+) {
   match self.copies.get(value) {
     Some(source) => @ssa.VarE(source)
     None => self.base().visit_Expr_VarE(value~)
@@ -36,7 +39,7 @@ impl @ssa.MapVisitor for CopyRewriteVisitor with visit_Expr_VarE(self, value~) {
 }
 
 ///|
-impl @ssa.MapVisitor for CopyRewriteVisitor with visit_Expr_ClosureE(
+impl @ssa.MapVisitor for CopyRewriteVisitor with fn visit_Expr_ClosureE(
   self,
   func~,
   captures~,
@@ -53,7 +56,7 @@ impl @ssa.MapVisitor for CopyRewriteVisitor with visit_Expr_ClosureE(
 }
 
 ///|
-impl @ssa.MapVisitor for CopyRewriteVisitor with visit_Block(self, block) {
+impl @ssa.MapVisitor for CopyRewriteVisitor with fn visit_Block(self, block) {
   let stmts = []
   for stmt in block.stmts {
     if !(stmt is BindS(_, VarE(_))) {
@@ -61,7 +64,7 @@ impl @ssa.MapVisitor for CopyRewriteVisitor with visit_Block(self, block) {
     }
   }
   let term = self.visit_Term(block.term)
-  { stmts, term }
+  { stmts, term, }
 }
 
 ///|
@@ -69,4 +72,15 @@ pub fn trivial_copy_propagation(program : @ssa.Program) -> @ssa.Program {
   let copies = collect_copy_map(program)
   let visitor : CopyRewriteVisitor = { copies, }
   visitor.visit_Program(program)
+}
+
+///|
+extend CopyCollector with @ssa.IterVisitor::{visit_Program}
+
+///|
+extend CopyRewriteVisitor with @ssa.MapVisitor::{
+  base,
+  visit_Stmt,
+  visit_Term,
+  visit_Program,
 }

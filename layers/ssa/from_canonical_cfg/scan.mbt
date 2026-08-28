@@ -146,13 +146,13 @@ fn block_captures(block : @canonical_cfg.Block) -> Array[ClosureSite] {
     let ids : Array[@canonical_cfg.FuncId] = []
     collect_closures_stmt(block.stmts[i], ids)
     for id in ids {
-      captures.push({ index: i, callee: id })
+      captures.push({ index: i, callee: id, })
     }
   }
   let ids : Array[@canonical_cfg.FuncId] = []
   collect_closures_term(block.term, ids)
   for id in ids {
-    captures.push({ index: block.stmts.length(), callee: id })
+    captures.push({ index: block.stmts.length(), callee: id, })
   }
   captures
 }
@@ -162,7 +162,7 @@ fn block_defs(block : @canonical_cfg.Block) -> Array[DefSite] {
   let defs : Array[DefSite] = []
   for i in 0..<block.stmts.length() {
     for place in stmt_defs(block.stmts[i]) {
-      defs.push({ index: i, place })
+      defs.push({ index: i, place, })
     }
   }
   defs

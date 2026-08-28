@@ -3,12 +3,12 @@ using @immut/sorted_map {type SortedMap}
 
 ///|
 fn fresh_var(id_gen : @ssa.IdGen) -> @ssa.Var {
-  { id: id_gen.next() }
+  { id: id_gen.next(), }
 }
 
 ///|
 fn fresh_label(id_gen : @ssa.IdGen) -> @ssa.Label {
-  { id: id_gen.next(), params: [] }
+  { id: id_gen.next(), params: [], }
 }
 
 ///|
@@ -31,7 +31,7 @@ fn program_with(
         entry,
       },
     ],
-    main: { index: 0 },
+    main: { index: 0, },
   }
 }
 
@@ -67,7 +67,7 @@ test "from_ssa preserves side effects in branch ending at shared empty return" {
     stmts: [call_stmt(else_call)],
     term: @ssa.ReturnT([], None),
   })
-  blocks = blocks.add(ret_label, { stmts: [], term: @ssa.ReturnT([], None) })
+  blocks = blocks.add(ret_label, { stmts: [], term: @ssa.ReturnT([], None), })
 
   let structured = from_ssa(program_with(id_gen, blocks, entry))
   match structured.funcs[0].body {

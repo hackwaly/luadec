@@ -309,14 +309,14 @@ fn write_proto(
 
 ///|
 pub fn disassemble_proto(chunk : Chunk, proto : Proto) -> String {
-  let builder = StringBuilder::new()
+  let builder = StringBuilder()
   write_proto(builder, chunk, proto.index, 0)
   builder.to_string()
 }
 
 ///|
 pub fn disassemble(chunk : Chunk) -> String {
-  let builder = StringBuilder::new()
+  let builder = StringBuilder()
   write_line(
     builder,
     0,

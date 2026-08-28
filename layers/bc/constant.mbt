@@ -10,7 +10,7 @@ pub(all) enum Constant {
 } derive(Eq)
 
 ///|
-pub impl Debug for Constant with to_repr(self) {
+pub impl Debug for Constant with fn to_repr(self) {
   match self {
     Nil => Repr::literal("nil")
     Boolean(true) => Repr::literal("true")

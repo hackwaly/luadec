@@ -3,12 +3,12 @@ using @immut/sorted_map {type SortedMap}
 
 ///|
 fn fresh_var(id_gen : @ssa.IdGen) -> @ssa.Var {
-  { id: id_gen.next() }
+  { id: id_gen.next(), }
 }
 
 ///|
 fn fresh_label(id_gen : @ssa.IdGen) -> @ssa.Label {
-  { id: id_gen.next(), params: [] }
+  { id: id_gen.next(), params: [], }
 }
 
 ///|
@@ -30,8 +30,8 @@ test "simplify keeps parameterized forwarding blocks" {
   let result = fresh_var(id_gen)
 
   let mut blocks : SortedMap[@ssa.Label, @ssa.Block] = SortedMap::new()
-  let carry_duration = { ..carry_duration, params: [result] }
-  let merge = { ..merge, params: [total_duration, result] }
+  let carry_duration = { ..carry_duration, params: [result], }
+  let merge = { ..merge, params: [total_duration, result], }
   blocks = blocks.add(entry, {
     stmts: [@ssa.BindS(zero, int_expr(0))],
     term: @ssa.CondT(
@@ -69,7 +69,7 @@ test "simplify keeps parameterized forwarding blocks" {
         entry,
       },
     ],
-    main: { index: 0 },
+    main: { index: 0, },
   }
 
   let simplified = simplify(program, index_as_side_effect=false)
@@ -100,7 +100,7 @@ test "simplify preserves cond values also used as target args" {
   let else_label = fresh_label(id_gen)
   let value = fresh_var(id_gen)
   let merged_value = fresh_var(id_gen)
-  let merge = { ..fresh_label(id_gen), params: [merged_value] }
+  let merge = { ..fresh_label(id_gen), params: [merged_value], }
 
   let mut blocks : SortedMap[@ssa.Label, @ssa.Block] = SortedMap::new()
   blocks = blocks.add(entry, {
@@ -134,7 +134,7 @@ test "simplify preserves cond values also used as target args" {
         entry,
       },
     ],
-    main: { index: 0 },
+    main: { index: 0, },
   }
 
   let simplified = simplify(program, index_as_side_effect=false)
@@ -160,7 +160,7 @@ test "simplify preserves cond values also used as target args" {
 test "simplify inlines single-use expression into jump target args" {
   let id_gen = @ssa.IdGen()
   let param = fresh_var(id_gen)
-  let entry = { ..fresh_label(id_gen), params: [param] }
+  let entry = { ..fresh_label(id_gen), params: [param], }
   let expr_pred = fresh_label(id_gen)
   let exit = fresh_label(id_gen)
   let object = fresh_var(id_gen)
@@ -200,7 +200,7 @@ test "simplify inlines single-use expression into jump target args" {
         entry,
       },
     ],
-    main: { index: 0 },
+    main: { index: 0, },
   }
 
   let simplified = simplify(program, index_as_side_effect=false)
@@ -263,7 +263,7 @@ test "simplify does not inline table creation into setlist target" {
         entry,
       },
     ],
-    main: { index: 0 },
+    main: { index: 0, },
   }
 
   let simplified = simplify(program, index_as_side_effect=false)

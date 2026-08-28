@@ -40,7 +40,7 @@ fn match_numeric_init(
           VarE(step),
         )
         let (limit, end) = resolve_trailing_numeric_bound(stmts, end, limit)
-        Some({ remaining_stmts: take_stmts(stmts, end), start, limit, step })
+        Some({ remaining_stmts: take_stmts(stmts, end), start, limit, step, })
       } else {
         None
       }
@@ -72,7 +72,7 @@ fn recognize_numeric_for(
         check_step == step &&
         exits_loop(else_region, exit_region) &&
         is_identity_jump(cont_region, cont_label, header) {
-        let redirect : RedirectContinue = { from: cont_label, to: header }
+        let redirect : RedirectContinue = { from: cont_label, to: header, }
         Some({
           value: ctrl,
           limit,
@@ -106,8 +106,8 @@ fn recognize_numeric_loop(
     Some(init) => init
     None => return None
   }
-  let new_header = { ..header, params: drop_last_vars(header.params) }
-  let dropper : DropLoopControl = { old_header: header, new_header }
+  let new_header = { ..header, params: drop_last_vars(header.params), }
+  let dropper : DropLoopControl = { old_header: header, new_header, }
   let loop_region = @structured.Loop(
     new_header,
     drop_last_exprs(init_args),

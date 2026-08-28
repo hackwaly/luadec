@@ -45,8 +45,8 @@ fn collect_local_captures(
         for capture in block_captures(block) {
           let child = program.funcs[capture.callee.index]
           for up in child.upvalues {
-            if up.func == { index: func.index } {
-              items.push({ label, index: capture.index, place: up })
+            if up.func == { index: func.index, } {
+              items.push({ label, index: capture.index, place: up, })
             }
           }
         }
@@ -61,13 +61,13 @@ fn nested_mutated_places(
   program : @canonical_cfg.Program,
   func : @canonical_cfg.Func,
 ) -> Map[@canonical_cfg.Local, Bool] {
-  let mutated : Map[@canonical_cfg.Local, Bool] = {}
+  let mutated : Map[@canonical_cfg.Local, Bool] = Map([])
   for other in program.funcs {
     if other.index == func.index {
       continue
     }
     for place in func_writes(other) {
-      if place.func == { index: func.index } {
+      if place.func == { index: func.index, } {
         mutated[place] = true
       }
     }
@@ -98,7 +98,7 @@ fn add_fresh_rebind_site(
   label : @canonical_cfg.Label,
   index : Int,
 ) -> Unit {
-  let site : FreshRebindSite = { label, place, index }
+  let site : FreshRebindSite = { label, place, index, }
   match sites_by_place.get(place) {
     Some(sites) => if !contains_fresh_site(sites, site) { sites.push(site) }
     None => sites_by_place[place] = [site]
@@ -111,7 +111,7 @@ fn fresh_rebind_site(
   place : @canonical_cfg.Local,
   index : Int,
 ) -> FreshRebindSite {
-  { label, place, index }
+  { label, place, index, }
 }
 
 ///|
@@ -130,7 +130,7 @@ fn is_fresh_rebind_site(
 /// locals. If canonical lowering changes shape, the analysis becomes
 /// conservatively less precise and will fall back to CellCapture.
 fn analyze_fresh_rebinds(func : @canonical_cfg.Func) -> FreshRebindInfo {
-  let sites_by_place : Map[@canonical_cfg.Local, Array[FreshRebindSite]] = {}
+  let sites_by_place : Map[@canonical_cfg.Local, Array[FreshRebindSite]] = Map([])
   for label, block in func.blocks {
     match block.term {
       CondT(BinaryE(Neq, LocalE(first_slot), ConstE(Nil)), bridge, _) => {
@@ -144,7 +144,10 @@ fn analyze_fresh_rebinds(func : @canonical_cfg.Func) -> FreshRebindInfo {
             }
             match func.blocks.get(bridge) {
               Some(
-                { stmts: [AssignS(ctrl2, LocalE(first_slot2))], term: JumpT(_) }
+                {
+                  stmts: [AssignS(ctrl2, LocalE(first_slot2))],
+                  term: JumpT(_),
+                }
               ) =>
                 if ctrl == ctrl2 && first_slot == first_slot2 {
                   for slot in slots {
@@ -164,7 +167,7 @@ fn analyze_fresh_rebinds(func : @canonical_cfg.Func) -> FreshRebindInfo {
       }
       CondT(NumericForCheckE(LocalE(index), _, _), bridge, _) =>
         match func.blocks.get(bridge) {
-          Some({ stmts: [AssignS(slot, LocalE(index2))], term: JumpT(_) }) if index ==
+          Some({ stmts: [AssignS(slot, LocalE(index2))], term: JumpT(_), }) if index ==
             index2 => add_fresh_rebind_site(sites_by_place, slot, bridge, 0)
           _ => ()
         }
@@ -182,7 +185,7 @@ fn block_or_descendants_write_place(
   start : @canonical_cfg.Label,
   place : @canonical_cfg.Local,
 ) -> Bool {
-  let visited : Map[@canonical_cfg.Label, Bool] = {}
+  let visited : Map[@canonical_cfg.Label, Bool] = Map([])
   let worklist : Array[@canonical_cfg.Label] = [start]
   while worklist.pop() is Some(label) {
     if visited.get(label) is Some(true) {
@@ -259,7 +262,7 @@ fn analyze_capture_plan(
   func : @canonical_cfg.Func,
   cfg : CfgInfo,
 ) -> CapturePlan {
-  let plan : Map[@canonical_cfg.Local, CaptureMode] = {}
+  let plan : Map[@canonical_cfg.Local, CaptureMode] = Map([])
   let mutated_by_inner = nested_mutated_places(program, func)
   let fresh_rebinds = analyze_fresh_rebinds(func)
   for capture in collect_local_captures(program, func, cfg) {
@@ -283,5 +286,5 @@ fn analyze_capture_plan(
       }
     }
   }
-  { places: plan }
+  { places: plan, }
 }

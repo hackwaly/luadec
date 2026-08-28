@@ -9,12 +9,12 @@ fn nth_id(id_gen : @ssa.IdGen, value : Int) -> @ssa.Id {
 
 ///|
 fn value(value : Int) -> @ssa.Var {
-  { id: nth_id(@ssa.IdGen(), value) }
+  { id: nth_id(@ssa.IdGen(), value), }
 }
 
 ///|
 fn cell(value : Int) -> @ssa.Cell {
-  { id: nth_id(@ssa.IdGen(), value) }
+  { id: nth_id(@ssa.IdGen(), value), }
 }
 
 ///|

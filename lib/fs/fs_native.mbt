@@ -5,7 +5,7 @@ pub async fn read_file(path : StringView) -> &@io.Data {
 
 ///|
 pub async fn write_file(path : StringView, content : &@io.Data) -> Unit {
-  @async/fs.write_file(path, content, create=0o644)
+  @async/fs.write_file(path, content, permission=0o644)
 }
 
 ///|

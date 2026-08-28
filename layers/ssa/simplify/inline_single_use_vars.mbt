@@ -6,7 +6,7 @@ priv struct Candidates {
 
 ///|
 fn empty_candidates() -> Candidates {
-  { order: [], exprs: SortedMap::new() }
+  { order: [], exprs: SortedMap::new(), }
 }
 
 ///|
@@ -28,7 +28,7 @@ fn candidates_add(
 
 ///|
 fn candidates_remove(candidates : Candidates, value : @ssa.Var) -> Candidates {
-  { ..candidates, exprs: candidates.exprs.remove(value) }
+  { ..candidates, exprs: candidates.exprs.remove(value), }
 }
 
 ///|
@@ -168,7 +168,7 @@ fn process_target(
             rewritten.push(expr)
           }
           _ => {
-            let mentioned : Map[@ssa.Var, Bool] = {}
+            let mentioned : Map[@ssa.Var, Bool] = Map([])
             mentioned[value] = true
             let (selected, rest) = candidates_partition(after, mentioned)
             before = candidates_merge(before, selected)
@@ -653,7 +653,7 @@ fn process_block(
 ) -> @ssa.Block {
   let out : Array[@ssa.Stmt] = []
   let mut candidates = empty_candidates()
-  let deleted : Map[@ssa.Var, Bool] = {}
+  let deleted : Map[@ssa.Var, Bool] = Map([])
   for stmt in block.stmts {
     let (_, after, stmt) = process_stmt(
       changed, deleted, index_as_side_effect, use_count, candidates, stmt,
@@ -671,7 +671,7 @@ fn process_block(
     candidates,
     block.term,
   )
-  { stmts: filter_deleted_stmts(out, deleted), term }
+  { stmts: filter_deleted_stmts(out, deleted), term, }
 }
 
 ///|
@@ -695,7 +695,7 @@ fn inline_single_use_vars_func(
     if !changed[0] {
       done = true
     } else {
-      current = { ..current, blocks, entry: current.entry }
+      current = { ..current, blocks, entry: current.entry, }
       changed_any = true
     }
   }

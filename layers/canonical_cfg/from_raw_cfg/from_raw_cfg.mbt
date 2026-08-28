@@ -1,6 +1,6 @@
 ///|
 fn lower_func_id(id : @raw_cfg.FuncId) -> FuncId {
-  { index: id.index }
+  { index: id.index, }
 }
 
 ///|
@@ -8,7 +8,7 @@ fn lower_local(local_ : @raw_cfg.Local) -> Local {
   if local_.is_env() {
     Local::env()
   } else {
-    { func: lower_func_id(local_.func), index: local_.slot }
+    { func: lower_func_id(local_.func), index: local_.slot, }
   }
 }
 
@@ -123,7 +123,7 @@ fn reachable_labels(func : @raw_cfg.Func) -> Array[@raw_cfg.Label] {
 ///|
 fn fresh_label(state : LowerState) -> Label {
   let label = Label::new(
-    func=lower_func_id({ index: state.func.index }),
+    func=lower_func_id({ index: state.func.index, }),
     index=state.next_label_index,
   )
   state.next_label_index += 1
@@ -137,13 +137,13 @@ fn add_bridge_block(
   term : Term,
 ) -> Label {
   let label = fresh_label(state)
-  state.blocks = state.blocks.add(label, { stmts, term })
+  state.blocks = state.blocks.add(label, { stmts, term, })
   label
 }
 
 ///|
 fn lower_func(func : @raw_cfg.Func) -> Func {
-  let label_map : Map[@raw_cfg.Label, Label] = {}
+  let label_map : Map[@raw_cfg.Label, Label] = Map([])
   let state : LowerState = {
     func,
     label_map,
@@ -241,7 +241,7 @@ fn lower_func(func : @raw_cfg.Func) -> Func {
         let canon_label = lower_label(state, label)
         let stmts = block.stmts.map(lower_stmt)
         let term = lower_term(block, stmts)
-        state.blocks = state.blocks.add(canon_label, { stmts, term })
+        state.blocks = state.blocks.add(canon_label, { stmts, term, })
       }
       None => panic()
     }
@@ -259,5 +259,5 @@ fn lower_func(func : @raw_cfg.Func) -> Func {
 
 ///|
 pub fn from_raw_cfg(prog : @raw_cfg.Program) -> Program {
-  { funcs: prog.funcs.map(lower_func), main: lower_func_id(prog.main) }
+  { funcs: prog.funcs.map(lower_func), main: lower_func_id(prog.main), }
 }

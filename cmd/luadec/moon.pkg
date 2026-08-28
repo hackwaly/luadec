@@ -21,7 +21,7 @@ import {
   "hackwaly/luadec/layers/structured/prune_cont_params" @structured/prune_cont_params,
   "hackwaly/luadec/layers/structured/hoist_common_transfers" @structured/hoist_common_transfers,
   "hackwaly/luadec/layers/structured/render" @structured/render,
-  "hackwaly/luadec/layers/expr" @expr,
+  "hackwaly/luadec/layers/expr",
   "hackwaly/luadec/layers/expr/from_structured" @expr/from_structured,
   "hackwaly/luadec/layers/expr/simplify_temps" @expr/simplify_temps,
   "hackwaly/luadec/layers/expr/fold_table_init" @expr/fold_table_init,
@@ -35,6 +35,4 @@ import {
 
 supported_targets = "native+js"
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")

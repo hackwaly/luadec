@@ -128,7 +128,7 @@ pub(all) struct Program {
 
 ///|
 pub fn Cell::env() -> Cell {
-  { id: Id(-1) }
+  { id: Id(-1), }
 }
 
 ///|
@@ -137,12 +137,12 @@ pub fn Cell::is_env(self : Cell) -> Bool {
 }
 
 ///|
-pub impl Debug for Var with to_repr(self) {
+pub impl Debug for Var with fn to_repr(self) {
   Repr::literal("v\{self.id.0}")
 }
 
 ///|
-pub impl Debug for Cell with to_repr(self) {
+pub impl Debug for Cell with fn to_repr(self) {
   if self.id.0 == -1 {
     Repr::literal("_ENV")
   } else {
@@ -151,21 +151,21 @@ pub impl Debug for Cell with to_repr(self) {
 }
 
 ///|
-pub impl Debug for Label with to_repr(self) {
+pub impl Debug for Label with fn to_repr(self) {
   Repr::literal("B\{self.id.0}")
 }
 
 ///|
-pub impl Eq for Label with equal(self, other) {
+pub impl Eq for Label with fn equal(self, other) {
   self.id == other.id
 }
 
 ///|
-pub impl Compare for Label with compare(self, other) {
+pub impl Compare for Label with fn compare(self, other) {
   Id::compare(self.id, other.id)
 }
 
 ///|
-pub impl Hash for Label with hash_combine(self, hasher) {
+pub impl Hash for Label with fn hash_combine(self, hasher) {
   Id::hash_combine(self.id, hasher)
 }

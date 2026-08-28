@@ -32,7 +32,7 @@ extern "js" fn write_once(
   #| })
 
 ///|
-pub impl @io.Writer for Output with write_once(_self, buf, offset~, len~) {
+pub impl @io.Writer for Output with fn write_once(_self, buf, offset~, len~) {
   match _self {
     Stdout => write_once("stdout", buf, offset, len).wait()
     Stderr => write_once("stderr", buf, offset, len).wait()

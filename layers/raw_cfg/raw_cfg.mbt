@@ -108,7 +108,7 @@ pub(all) struct Program {
 
 ///|
 pub fn Local::env() -> Local {
-  { func: { index: 0 }, slot: -1 }
+  { func: { index: 0, }, slot: -1, }
 }
 
 ///|
@@ -117,7 +117,7 @@ pub fn Local::is_env(self : Local) -> Bool {
 }
 
 ///|
-pub impl Debug for Local with to_repr(self) {
+pub impl Debug for Local with fn to_repr(self) {
   if self.is_env() {
     Repr::literal("_ENV")
   } else {
@@ -131,11 +131,11 @@ pub fn Label::Label(pc~ : Int) -> Label {
 }
 
 ///|
-pub impl Debug for Label with to_repr(self) {
+pub impl Debug for Label with fn to_repr(self) {
   Repr::literal("L\{self.pc}")
 }
 
 ///|
-pub impl Debug for FuncId with to_repr(self) {
+pub impl Debug for FuncId with fn to_repr(self) {
   Repr::literal("f\{self.index}")
 }

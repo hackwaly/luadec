@@ -28,17 +28,17 @@ priv struct InlineSubst {
 }
 
 ///|
-impl @expr.IterVisitor for UseCounter with visit_Expr_VarE(self, value~) {
+impl @expr.IterVisitor for UseCounter with fn visit_Expr_VarE(self, value~) {
   self.uses[value] = self.uses.get(value).unwrap_or(0) + 1
 }
 
 ///|
-impl @expr.IterVisitor for CellCounter with visit_Expr_CellE(self, cell~) {
+impl @expr.IterVisitor for CellCounter with fn visit_Expr_CellE(self, cell~) {
   self.stats.reads[cell] = self.stats.reads.get(cell).unwrap_or(0) + 1
 }
 
 ///|
-impl @expr.IterVisitor for CellCounter with visit_Stmt_LocalS(
+impl @expr.IterVisitor for CellCounter with fn visit_Stmt_LocalS(
   self,
   cells~ : Array[@ssa.Cell],
   values~,
@@ -50,7 +50,7 @@ impl @expr.IterVisitor for CellCounter with visit_Stmt_LocalS(
 }
 
 ///|
-impl @expr.IterVisitor for CellCounter with visit_Stmt_ParallelAssignS(
+impl @expr.IterVisitor for CellCounter with fn visit_Stmt_ParallelAssignS(
   self,
   cells~,
   values~,
@@ -64,7 +64,7 @@ impl @expr.IterVisitor for CellCounter with visit_Stmt_ParallelAssignS(
 }
 
 ///|
-impl @expr.MapVisitor for CellAlias with visit_Cell(self, cell) {
+impl @expr.MapVisitor for CellAlias with fn visit_Cell(self, cell) {
   if cell == self.from {
     self.to
   } else {
@@ -73,7 +73,7 @@ impl @expr.MapVisitor for CellAlias with visit_Cell(self, cell) {
 }
 
 ///|
-impl @expr.MapVisitor for InlineSubst with visit_Expr_VarE(self, value~) {
+impl @expr.MapVisitor for InlineSubst with fn visit_Expr_VarE(self, value~) {
   match self.subst.get(value) {
     Some(expr) => {
       self.used_count[value] = self.used_count.get(value).unwrap_or(0) + 1
@@ -88,14 +88,14 @@ impl @expr.MapVisitor for InlineSubst with visit_Expr_VarE(self, value~) {
 }
 
 ///|
-impl @expr.MapVisitor for InlineSubst with visit_Expr_ClosureE(self, func~) {
+impl @expr.MapVisitor for InlineSubst with fn visit_Expr_ClosureE(self, func~) {
   ignore(self)
   @expr.ClosureE(func)
 }
 
 ///|
 fn count_uses(body : Block) -> Map[@ssa.Var, Int] {
-  let uses : Map[@ssa.Var, Int] = {}
+  let uses : Map[@ssa.Var, Int] = Map([])
   let counter : UseCounter = { uses, }
   counter.visit_Block(body)
   uses
@@ -103,7 +103,7 @@ fn count_uses(body : Block) -> Map[@ssa.Var, Int] {
 
 ///|
 fn count_cells(body : Block) -> CellStats {
-  let stats : CellStats = { reads: {}, writes: {} }
+  let stats : CellStats = { reads: {}, writes: {}, }
   let counter : CellCounter = { stats, }
   counter.visit_Block(body)
   stats
@@ -183,7 +183,7 @@ fn block_writes_cell(body : Block, cell : @ssa.Cell) -> Bool {
 
 ///|
 fn alias_loop_stmt(stmt : Stmt, from : @ssa.Cell, to : @ssa.Cell) -> Stmt {
-  let aliaser : CellAlias = { from, to }
+  let aliaser : CellAlias = { from, to, }
   aliaser.visit_Stmt(stmt)
 }
 
@@ -315,7 +315,7 @@ fn rewrite_with_subst(
   used_count : Map[@ssa.Var, Int],
   stmt : Stmt,
 ) -> Stmt {
-  let inliner : InlineSubst = { subst, deleted, used_count }
+  let inliner : InlineSubst = { subst, deleted, used_count, }
   inliner.visit_Stmt(stmt)
 }
 
@@ -324,9 +324,9 @@ fn inline_deferred_single_use_binds(
   body : Block,
   uses : Map[@ssa.Var, Int],
 ) -> (Block, Bool) {
-  let subst : Map[@ssa.Var, Expr] = {}
-  let deleted : Map[@ssa.Var, Bool] = {}
-  let used_count : Map[@ssa.Var, Int] = {}
+  let subst : Map[@ssa.Var, Expr] = Map([])
+  let deleted : Map[@ssa.Var, Bool] = Map([])
+  let used_count : Map[@ssa.Var, Int] = Map([])
   let out : Block = []
   let changed = [false]
   for stmt in body {
@@ -546,7 +546,7 @@ priv struct Simplifier {
 }
 
 ///|
-impl @expr.MapVisitor for Simplifier with visit_Block(self, body) {
+impl @expr.MapVisitor for Simplifier with fn visit_Block(self, body) {
   let mut body = body.map(fn(stmt) { self.visit_Stmt(stmt) })
   while true {
     let (next, changed) = simplify_block_once(body)
@@ -560,6 +560,21 @@ impl @expr.MapVisitor for Simplifier with visit_Block(self, body) {
 
 ///|
 pub fn simplify_temps(program : Program) -> Program {
-  let simplifier : Simplifier = { _unit: () }
+  let simplifier : Simplifier = { _unit: (), }
   simplifier.visit_Program(program)
 }
+
+///|
+extend UseCounter with @expr.IterVisitor::{visit_Block}
+
+///|
+extend CellCounter with @expr.IterVisitor::{visit_Expr, visit_Block}
+
+///|
+extend CellAlias with @expr.MapVisitor::{visit_Stmt}
+
+///|
+extend InlineSubst with @expr.MapVisitor::{visit_Stmt}
+
+///|
+extend Simplifier with @expr.MapVisitor::{visit_Stmt, visit_Program}

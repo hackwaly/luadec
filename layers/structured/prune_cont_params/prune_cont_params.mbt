@@ -5,7 +5,7 @@ priv struct VarUse {
 }
 
 ///|
-impl @structured.IterVisitor for VarUse with visit_Expr(self, expr) {
+impl @structured.IterVisitor for VarUse with fn visit_Expr(self, expr) {
   match expr {
     VarE(value) if value == self.value => self.found[0] = true
     ClosureE(_, captures) =>
@@ -21,7 +21,7 @@ impl @structured.IterVisitor for VarUse with visit_Expr(self, expr) {
 ///|
 fn region_mentions_var(region : Region, value : @ssa.Var) -> Bool {
   let found = [false]
-  let visitor : VarUse = { value, found }
+  let visitor : VarUse = { value, found, }
   visitor.visit_Region(region)
   found[0]
 }
@@ -34,7 +34,7 @@ priv struct DropContParams {
 }
 
 ///|
-impl @structured.MapVisitor for DropContParams with visit_Region_Goto(
+impl @structured.MapVisitor for DropContParams with fn visit_Region_Goto(
   self,
   target~,
 ) {
@@ -59,7 +59,7 @@ priv struct RedirectGoto {
 }
 
 ///|
-impl @structured.MapVisitor for RedirectGoto with visit_Region_Goto(
+impl @structured.MapVisitor for RedirectGoto with fn visit_Region_Goto(
   self,
   target~,
 ) {
@@ -94,13 +94,13 @@ fn redirect_sources(
   from : @ssa.Label,
   to : @ssa.Label,
 ) -> Array[Region] {
-  let redirect : RedirectGoto = { from, to }
+  let redirect : RedirectGoto = { from, to, }
   sources.map(fn(region) { redirect.visit_Region(region) })
 }
 
 ///|
 fn fresh_label(id_gen : @ssa.IdGen) -> @ssa.Label {
-  { id: id_gen.next(), params: [] }
+  { id: id_gen.next(), params: [], }
 }
 
 ///|
@@ -128,8 +128,8 @@ fn prune_cont(
   guard kept_params.length() < old_label.params.length() else {
     return (sources, Some(cont))
   }
-  let new_label = { ..old_label, params: kept_params }
-  let dropper : DropContParams = { old_label, new_label, keep_indices }
+  let new_label = { ..old_label, params: kept_params, }
+  let dropper : DropContParams = { old_label, new_label, keep_indices, }
   let new_sources = sources.map(fn(region) {
     prune_region(id_gen, dropper.visit_Region(region))
   })
@@ -204,7 +204,24 @@ pub fn prune_cont_params(program : Program) -> Program {
   {
     ..program,
     funcs: program.funcs.map(fn(func) {
-      { ..func, body: prune_region(program._id_gen, func.body) }
+      { ..func, body: prune_region(program._id_gen, func.body), }
     }),
   }
+}
+
+///|
+extend VarUse with @structured.IterVisitor::{base, visit_Region}
+
+///|
+extend DropContParams with @structured.MapVisitor::{
+  visit_Expr,
+  visit_Target,
+  visit_Region,
+}
+
+///|
+extend RedirectGoto with @structured.MapVisitor::{
+  visit_Expr,
+  visit_Target,
+  visit_Region,
 }

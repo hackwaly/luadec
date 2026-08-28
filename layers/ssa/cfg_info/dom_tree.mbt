@@ -16,7 +16,7 @@ pub fn build_dom_tree(entry : Label, cfg : CfgInfo) -> DomTree {
   let best : Array[Int] = []
   let idom_idx : Array[Int] = []
   let bucket : Array[Array[Int]] = []
-  let index_of : Map[Label, Int] = {}
+  let index_of : Map[Label, Int] = Map([])
 
   letrec dfs = fn(label : Label, parent_idx : Int) -> Unit {
     let idx = vertex.length()
@@ -66,7 +66,7 @@ pub fn build_dom_tree(entry : Label, cfg : CfgInfo) -> DomTree {
   dfs(entry, 0)
 
   if vertex.length() == 0 {
-    return { entry, idom: {}, preorder: [], pre_index: {}, post_index: {} }
+    return { entry, idom: {}, preorder: [], pre_index: {}, post_index: {}, }
   }
 
   for i = vertex.length() - 1; i >= 1; i = i - 1 {
@@ -100,7 +100,7 @@ pub fn build_dom_tree(entry : Label, cfg : CfgInfo) -> DomTree {
     bucket[p] = []
   }
 
-  let idom : Map[Label, Label] = {}
+  let idom : Map[Label, Label] = Map([])
   idom[vertex[0]] = vertex[0]
   for i in 1..<vertex.length() {
     if idom_idx[i] != semi[i] {
@@ -109,7 +109,7 @@ pub fn build_dom_tree(entry : Label, cfg : CfgInfo) -> DomTree {
     idom[vertex[i]] = vertex[idom_idx[i]]
   }
 
-  let children : Map[Label, Array[Label]] = {}
+  let children : Map[Label, Array[Label]] = Map([])
   for label in vertex {
     children[label] = []
   }
@@ -119,8 +119,8 @@ pub fn build_dom_tree(entry : Label, cfg : CfgInfo) -> DomTree {
     children[parent_label].push(label)
   }
 
-  let pre_index : Map[Label, Int] = {}
-  let post_index : Map[Label, Int] = {}
+  let pre_index : Map[Label, Int] = Map([])
+  let post_index : Map[Label, Int] = Map([])
   let mut clock = 0
   letrec stamp = fn(label : Label) -> Unit {
     pre_index[label] = clock
@@ -132,7 +132,7 @@ pub fn build_dom_tree(entry : Label, cfg : CfgInfo) -> DomTree {
     clock += 1
   }
   stamp(entry)
-  { entry, idom, preorder: vertex, pre_index, post_index }
+  { entry, idom, preorder: vertex, pre_index, post_index, }
 }
 
 ///|

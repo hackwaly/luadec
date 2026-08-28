@@ -9,12 +9,12 @@ fn bump_use_count(use_count : Map[@ssa.Var, Int], value : @ssa.Var) -> Unit {
 }
 
 ///|
-impl @ssa.IterVisitor for UseCountVisitor with visit_Expr_VarE(self, value~) {
+impl @ssa.IterVisitor for UseCountVisitor with fn visit_Expr_VarE(self, value~) {
   bump_use_count(self.use_count, value)
 }
 
 ///|
-impl @ssa.IterVisitor for UseCountVisitor with visit_Expr_ClosureE(
+impl @ssa.IterVisitor for UseCountVisitor with fn visit_Expr_ClosureE(
   self,
   func~,
   captures~,
@@ -27,7 +27,10 @@ impl @ssa.IterVisitor for UseCountVisitor with visit_Expr_ClosureE(
 
 ///|
 pub fn analyze_use_count(func : @ssa.Func) -> Map[@ssa.Var, Int] {
-  let visitor : UseCountVisitor = { use_count: {} }
+  let visitor : UseCountVisitor = { use_count: {}, }
   visitor.visit_Func(func)
   visitor.use_count
 }
+
+///|
+extend UseCountVisitor with @ssa.IterVisitor::{visit_Func}

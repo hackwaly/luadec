@@ -39,9 +39,9 @@ fn successor_labels(term : Term) -> Array[Label] {
 ///|
 pub fn build_cfg(func : Func) -> CfgInfo {
   let labels : Array[Label] = []
-  let succs : Map[Label, Array[Label]] = {}
-  let preds : Map[Label, Array[Label]] = {}
-  let visited : Map[Label, Bool] = {}
+  let succs : Map[Label, Array[Label]] = Map([])
+  let preds : Map[Label, Array[Label]] = Map([])
+  let visited : Map[Label, Bool] = Map([])
   let worklist : Array[Label] = [func.entry]
   while worklist.pop() is Some(label) {
     if visited.get(label) is Some(true) {
@@ -80,5 +80,5 @@ pub fn build_cfg(func : Func) -> CfgInfo {
       None => preds[label] = []
     }
   }
-  { labels, succs, preds }
+  { labels, succs, preds, }
 }

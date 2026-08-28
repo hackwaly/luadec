@@ -88,7 +88,7 @@ priv struct Parser {
 
 ///|
 fn Parser::new(input : BytesView) -> Parser {
-  { input, offset: 0, protos: [] }
+  { input, offset: 0, protos: [], }
 }
 
 ///|
@@ -272,7 +272,7 @@ fn Parser::read_constant(
 
 ///|
 fn Parser::read_upvalue(self : Parser) -> Upvalue raise Failure {
-  { on_stack: self.read_bool(), index: self.read_byte().to_int() }
+  { on_stack: self.read_bool(), index: self.read_byte().to_int(), }
 }
 
 ///|
@@ -336,7 +336,7 @@ fn Parser::read_debug_info(
     upval_info.push(name)
   }
 
-  { line_info, local_info, upval_info }
+  { line_info, local_info, upval_info, }
 }
 
 ///|
@@ -428,5 +428,5 @@ pub fn parse(bytes : BytesView) -> Chunk raise Failure {
   if parser.offset != parser.input.length() {
     parser.parse_error("trailing bytes after main prototype")
   }
-  { header, protos: parser.protos, main }
+  { header, protos: parser.protos, main, }
 }

@@ -24,7 +24,7 @@ priv struct LowerCtx {
 
 ///|
 fn cell_of_var(value : @ssa.Var) -> @ssa.Cell {
-  { id: value.id }
+  { id: value.id, }
 }
 
 ///|
@@ -92,7 +92,7 @@ fn with_transfer(
   {
     ..ctx,
     transfers: [
-      Transfer::{ label, kind, loop_depth: ctx.loop_depth },
+      Transfer::{ label, kind, loop_depth: ctx.loop_depth, },
       ..ctx.transfers,
     ],
   }
@@ -226,8 +226,8 @@ fn lower_setlist(
   }
   match multi {
     Some(next) => {
-      let key : @ssa.Var = { id: ctx.program._id_gen.next() }
-      let value : @ssa.Var = { id: ctx.program._id_gen.next() }
+      let key : @ssa.Var = { id: ctx.program._id_gen.next(), }
+      let value : @ssa.Var = { id: ctx.program._id_gen.next(), }
       let iter_expr = @expr.CallE(
         @expr.NormalC(
           @expr.IndexE(
@@ -745,7 +745,7 @@ fn lower_func(
   parent_ctx? : LowerCtx,
 ) -> @expr.Func {
   let func = program.funcs[id.index]
-  let param_cells : Map[@ssa.Var, @ssa.Cell] = {}
+  let param_cells : Map[@ssa.Var, @ssa.Cell] = Map([])
   match parent_ctx {
     Some(ctx) =>
       for entry in ctx.param_cells {
@@ -755,7 +755,7 @@ fn lower_func(
     None => ()
   }
   collect_region_params(param_cells, func.body)
-  let declared_cells : Map[@ssa.Cell, Bool] = {}
+  let declared_cells : Map[@ssa.Cell, Bool] = Map([])
   let ctx : LowerCtx = {
     program,
     param_cells,
@@ -772,7 +772,7 @@ fn lower_func(
     }
   }
   append_all(body, lower_region(ctx, func.body))
-  { params: func.params, vararg: func.vararg, body }
+  { params: func.params, vararg: func.vararg, body, }
 }
 
 ///|

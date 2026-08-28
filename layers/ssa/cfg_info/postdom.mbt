@@ -1,8 +1,8 @@
 ///|
 pub fn build_postdom_cfg(cfg : CfgInfo, synthetic_exit : Label) -> CfgInfo {
   let labels : Array[Label] = []
-  let succs : Map[Label, Array[Label]] = {}
-  let preds : Map[Label, Array[Label]] = {}
+  let succs : Map[Label, Array[Label]] = Map([])
+  let preds : Map[Label, Array[Label]] = Map([])
 
   for label in cfg.labels {
     labels.push(label)
@@ -31,8 +31,8 @@ pub fn build_postdom_cfg(cfg : CfgInfo, synthetic_exit : Label) -> CfgInfo {
   }
   succs[synthetic_exit] = []
 
-  let reverse_succs : Map[Label, Array[Label]] = {}
-  let reverse_preds : Map[Label, Array[Label]] = {}
+  let reverse_succs : Map[Label, Array[Label]] = Map([])
+  let reverse_preds : Map[Label, Array[Label]] = Map([])
   for label in labels {
     reverse_succs[label] = match preds.get(label) {
       Some(items) => items
@@ -43,5 +43,5 @@ pub fn build_postdom_cfg(cfg : CfgInfo, synthetic_exit : Label) -> CfgInfo {
       None => []
     }
   }
-  { labels, succs: reverse_succs, preds: reverse_preds }
+  { labels, succs: reverse_succs, preds: reverse_preds, }
 }

@@ -9,12 +9,12 @@ fn nth_id(id_gen : @ssa.IdGen, value : Int) -> @ssa.Id {
 
 ///|
 fn value(value : Int) -> @ssa.Var {
-  { id: nth_id(@ssa.IdGen(), value) }
+  { id: nth_id(@ssa.IdGen(), value), }
 }
 
 ///|
 fn cell(value : Int) -> @ssa.Cell {
-  { id: nth_id(@ssa.IdGen(), value) }
+  { id: nth_id(@ssa.IdGen(), value), }
 }
 
 ///|
@@ -100,7 +100,7 @@ test "infer_names names top-level returned module table from filename" {
         @expr.SetIndexS(
           @expr.VarE(table),
           key("init"),
-          @expr.ClosureE({ params: [], vararg: false, body: [] }),
+          @expr.ClosureE({ params: [], vararg: false, body: [], }),
         ),
         @expr.ReturnS([@expr.VarE(table)], None),
       ],

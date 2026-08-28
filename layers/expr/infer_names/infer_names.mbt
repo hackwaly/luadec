@@ -101,7 +101,7 @@ fn add_func_param_name(
   guard state.vars.get(value) is None else { return }
   match candidate {
     Some(base) => {
-      let used : Map[String, Bool] = {}
+      let used : Map[String, Bool] = Map([])
       for param in params {
         match state.vars.get(param) {
           Some(name) => used[name] = true
@@ -765,7 +765,7 @@ pub fn infer_names_with_filename(
   }
   infer_block(state, program)
   infer_top_returned_module_name(state, program, filename)
-  { program, names: { vars: state.vars, cells: state.cells } }
+  { program, names: { vars: state.vars, cells: state.cells, }, }
 }
 
 ///|

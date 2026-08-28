@@ -190,7 +190,7 @@ fn normalize_expr(expr : @expr.Expr) -> @expr.Expr {
     OrE(lhs, rhs) => @expr.OrE(normalize_expr(lhs), normalize_expr(rhs))
     CallE(call) => @expr.CallE(normalize_call(call))
     ClosureE(func) =>
-      @expr.ClosureE({ ..func, body: normalize_block(func.body) })
+      @expr.ClosureE({ ..func, body: normalize_block(func.body), })
   }
 }
 
@@ -241,14 +241,18 @@ priv struct CellUse {
 }
 
 ///|
-impl @expr.IterVisitor for CellUse with visit_Expr_CellE(self, cell~) {
+impl @expr.IterVisitor for CellUse with fn visit_Expr_CellE(self, cell~) {
   if cell == self.cell {
     self.found[0] = true
   }
 }
 
 ///|
-impl @expr.IterVisitor for CellUse with visit_Stmt_LocalS(self, cells~, values~) {
+impl @expr.IterVisitor for CellUse with fn visit_Stmt_LocalS(
+  self,
+  cells~,
+  values~,
+) {
   ignore(cells)
   for value in values {
     self.visit_Expr(value)
@@ -256,7 +260,7 @@ impl @expr.IterVisitor for CellUse with visit_Stmt_LocalS(self, cells~, values~)
 }
 
 ///|
-impl @expr.IterVisitor for CellUse with visit_Stmt_ParallelAssignS(
+impl @expr.IterVisitor for CellUse with fn visit_Stmt_ParallelAssignS(
   self,
   cells~,
   values~,
@@ -270,7 +274,7 @@ impl @expr.IterVisitor for CellUse with visit_Stmt_ParallelAssignS(
 ///|
 fn block_reads_cell(body : @expr.Block, cell : @ssa.Cell) -> Bool {
   let found = [false]
-  let visitor : CellUse = { cell, found }
+  let visitor : CellUse = { cell, found, }
   visitor.visit_Block(body)
   found[0]
 }
@@ -606,3 +610,6 @@ fn normalize_block(body : @expr.Block) -> @expr.Block {
 pub fn normalize_if(program : @expr.Program) -> @expr.Program {
   normalize_block(program)
 }
+
+///|
+extend CellUse with @expr.IterVisitor::{visit_Expr, visit_Block}

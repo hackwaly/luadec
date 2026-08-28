@@ -13,7 +13,7 @@ priv struct RenderCtx {
 
 ///|
 fn default_ctx() -> RenderCtx {
-  { names: None }
+  { names: None, }
 }
 
 ///|
@@ -897,5 +897,5 @@ fn render_with(ctx : RenderCtx, program : @expr.Program) -> String {
 
 ///|
 pub fn render_named(named : @expr.NamedProgram) -> String {
-  render_with({ names: Some(named.names) }, named.program)
+  render_with({ names: Some(named.names), }, named.program)
 }

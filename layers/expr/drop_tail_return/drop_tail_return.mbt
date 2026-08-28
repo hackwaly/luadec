@@ -39,7 +39,7 @@ fn drop_tail_return_expr(expr : @expr.Expr) -> @expr.Expr {
       @expr.OrE(drop_tail_return_expr(lhs), drop_tail_return_expr(rhs))
     CallE(call) => @expr.CallE(drop_tail_return_call(call))
     ClosureE(func) =>
-      @expr.ClosureE({ ..func, body: drop_tail_return_in_func_body(func.body) })
+      @expr.ClosureE({ ..func, body: drop_tail_return_in_func_body(func.body), })
   }
 }
 

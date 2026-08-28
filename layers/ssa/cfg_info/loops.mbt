@@ -20,7 +20,7 @@ pub(all) struct LoopForest {
 
 ///|
 fn member_map(refs : Array[Label]) -> Map[Label, Bool] {
-  let map : Map[Label, Bool] = {}
+  let map : Map[Label, Bool] = Map([])
   for label in refs {
     map[label] = true
   }
@@ -44,7 +44,7 @@ fn natural_loop_members(
   dom : DomTree,
 ) -> Array[Label] {
   let members : Array[Label] = [header]
-  let seen : Map[Label, Bool] = {}
+  let seen : Map[Label, Bool] = Map([])
   seen[header] = true
   let stack : Array[Label] = []
   for source in sources {
@@ -83,7 +83,7 @@ pub fn find_backedges(cfg : CfgInfo, dom : DomTree) -> Array[Backedge] {
       Some(nexts) =>
         for header in nexts {
           if dominates(dom, header, source) {
-            backedges.push({ source, header })
+            backedges.push({ source, header, })
           }
         }
       None => ()
@@ -96,7 +96,7 @@ pub fn find_backedges(cfg : CfgInfo, dom : DomTree) -> Array[Backedge] {
 pub fn build_loop_forest(cfg : CfgInfo, dom : DomTree) -> LoopForest {
   let headers : Array[Label] = []
   let backedges_of : Array[Array[Label]] = []
-  let header_index : Map[Label, Int] = {}
+  let header_index : Map[Label, Int] = Map([])
 
   for edge in find_backedges(cfg, dom) {
     match header_index.get(edge.header) {
@@ -188,5 +188,5 @@ pub fn build_loop_forest(cfg : CfgInfo, dom : DomTree) -> LoopForest {
       root_headers.push(headers[index])
     }
   }
-  { loops, roots: label_set(root_headers) }
+  { loops, roots: label_set(root_headers), }
 }

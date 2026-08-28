@@ -23,21 +23,21 @@ priv enum TableTarget {
 }
 
 ///|
-impl @expr.IterVisitor for CellRead with visit_Expr_CellE(self, cell~) {
+impl @expr.IterVisitor for CellRead with fn visit_Expr_CellE(self, cell~) {
   if cell == self.cell {
     self.found[0] = true
   }
 }
 
 ///|
-impl @expr.IterVisitor for VarRead with visit_Expr_VarE(self, value~) {
+impl @expr.IterVisitor for VarRead with fn visit_Expr_VarE(self, value~) {
   if value == self.value {
     self.found[0] = true
   }
 }
 
 ///|
-impl @expr.IterVisitor for VarMention with visit_Expr_VarE(self, value~) {
+impl @expr.IterVisitor for VarMention with fn visit_Expr_VarE(self, value~) {
   if value == self.value {
     self.found[0] = true
   }
@@ -46,7 +46,7 @@ impl @expr.IterVisitor for VarMention with visit_Expr_VarE(self, value~) {
 ///|
 fn expr_reads_cell(expr : @expr.Expr, cell : @ssa.Cell) -> Bool {
   let found = [false]
-  let visitor : CellRead = { cell, found }
+  let visitor : CellRead = { cell, found, }
   visitor.visit_Expr(expr)
   found[0]
 }
@@ -54,7 +54,7 @@ fn expr_reads_cell(expr : @expr.Expr, cell : @ssa.Cell) -> Bool {
 ///|
 fn expr_reads_var(expr : @expr.Expr, value : @ssa.Var) -> Bool {
   let found = [false]
-  let visitor : VarRead = { value, found }
+  let visitor : VarRead = { value, found, }
   visitor.visit_Expr(expr)
   found[0]
 }
@@ -62,7 +62,7 @@ fn expr_reads_var(expr : @expr.Expr, value : @ssa.Var) -> Bool {
 ///|
 fn stmt_mentions_var(stmt : @expr.Stmt, value : @ssa.Var) -> Bool {
   let found = [false]
-  let visitor : VarMention = { value, found }
+  let visitor : VarMention = { value, found, }
   visitor.visit_Stmt(stmt)
   found[0]
 }
@@ -316,12 +316,24 @@ fn fold_current_block(body : @expr.Block) -> @expr.Block {
 }
 
 ///|
-impl @expr.MapVisitor for Folder with visit_Block(self, body) {
+impl @expr.MapVisitor for Folder with fn visit_Block(self, body) {
   fold_current_block(self.base().visit_Block(body))
 }
 
 ///|
 pub fn fold_table_init(program : @expr.Program) -> @expr.Program {
-  let folder : Folder = { _unit: () }
+  let folder : Folder = { _unit: (), }
   folder.visit_Program(program)
 }
+
+///|
+extend CellRead with @expr.IterVisitor::{visit_Expr}
+
+///|
+extend VarRead with @expr.IterVisitor::{visit_Expr}
+
+///|
+extend VarMention with @expr.IterVisitor::{visit_Stmt}
+
+///|
+extend Folder with @expr.MapVisitor::{base, visit_Program}

@@ -14,7 +14,7 @@ fn build_dom_tree(func : @canonical_cfg.Func, cfg : CfgInfo) -> DomTree {
   let best : Array[Int] = []
   let idom_idx : Array[Int] = []
   let bucket : Array[Array[Int]] = []
-  let index_of : Map[@canonical_cfg.Label, Int] = {}
+  let index_of : Map[@canonical_cfg.Label, Int] = Map([])
 
   letrec dfs = fn(label : @canonical_cfg.Label, parent_idx : Int) -> Unit {
     let idx = vertex.length()
@@ -64,7 +64,7 @@ fn build_dom_tree(func : @canonical_cfg.Func, cfg : CfgInfo) -> DomTree {
   dfs(func.entry, 0)
 
   if vertex.length() == 0 {
-    return { entry: func.entry, idom: {}, preorder: [] }
+    return { entry: func.entry, idom: {}, preorder: [], }
   }
 
   for i = vertex.length() - 1; i >= 1; i = i - 1 {
@@ -98,7 +98,7 @@ fn build_dom_tree(func : @canonical_cfg.Func, cfg : CfgInfo) -> DomTree {
     bucket[p] = []
   }
 
-  let idom : Map[@canonical_cfg.Label, @canonical_cfg.Label] = {}
+  let idom : Map[@canonical_cfg.Label, @canonical_cfg.Label] = Map([])
   idom[vertex[0]] = vertex[0]
   for i in 1..<vertex.length() {
     if idom_idx[i] != semi[i] {
@@ -106,5 +106,5 @@ fn build_dom_tree(func : @canonical_cfg.Func, cfg : CfgInfo) -> DomTree {
     }
     idom[vertex[i]] = vertex[idom_idx[i]]
   }
-  { entry: func.entry, idom, preorder: vertex }
+  { entry: func.entry, idom, preorder: vertex, }
 }

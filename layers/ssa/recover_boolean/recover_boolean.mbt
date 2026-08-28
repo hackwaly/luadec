@@ -50,7 +50,7 @@ fn target_is_empty_return(
   let @ssa.Target(label, args) = target
   guard args.length() == 0 && label.params.length() == 0 else { return false }
   match blocks.get(label) {
-    Some({ stmts: [], term: @ssa.ReturnT([], None) }) => true
+    Some({ stmts: [], term: @ssa.ReturnT([], None), }) => true
     _ => false
   }
 }
@@ -69,7 +69,7 @@ fn same_destination(
 fn pred_count(
   blocks : SortedMap[@ssa.Label, @ssa.Block],
 ) -> Map[@ssa.Label, Int] {
-  let preds : Map[@ssa.Label, Int] = {}
+  let preds : Map[@ssa.Label, Int] = Map([])
   for _, block in blocks {
     match block.term {
       @ssa.JumpT(@ssa.Target(label, _)) =>
@@ -90,7 +90,7 @@ fn get_cond_block(
   label : @ssa.Label,
 ) -> (@ssa.Expr, @ssa.Target, @ssa.Target)? {
   match blocks.get(label) {
-    Some({ stmts: [], term: @ssa.CondT(rhs, true_target, false_target) }) =>
+    Some({ stmts: [], term: @ssa.CondT(rhs, true_target, false_target), }) =>
       Some((rhs, true_target, false_target))
     _ => None
   }
@@ -115,7 +115,7 @@ fn forwarded_single_arg_expr(
     None => {
       let @ssa.Target(label, args) = target
       match (args, blocks.get(label)) {
-        ([], Some({ stmts: [], term: @ssa.JumpT(next) })) =>
+        ([], Some({ stmts: [], term: @ssa.JumpT(next), })) =>
           target_single_arg_expr(next)
         _ => None
       }
@@ -299,7 +299,7 @@ fn rewrite_value_expr(
         ) if join_label == join_label2 && join_accepts_single_value(join_label) =>
           match value_expr_for_targets(cond, true_arg, false_arg) {
             Some(expr) => {
-              let result : @ssa.Var = { id: id_gen.next() }
+              let result : @ssa.Var = { id: id_gen.next(), }
               let mut removed : SortedSet[@ssa.Label] = SortedSet::new()
               match true_drop {
                 Some(label) =>
@@ -443,7 +443,7 @@ fn recover_func(id_gen : @ssa.IdGen, func : @ssa.Func) -> @ssa.Func {
   let mut changed = true
   while changed {
     changed = false
-    let blocks : Map[@ssa.Label, @ssa.Block] = {}
+    let blocks : Map[@ssa.Label, @ssa.Block] = Map([])
     for label, block in current.blocks {
       blocks[label] = block
     }
@@ -467,7 +467,7 @@ fn recover_func(id_gen : @ssa.IdGen, func : @ssa.Func) -> @ssa.Func {
       }
     }
     if changed {
-      current = { ..current, blocks: out_blocks }
+      current = { ..current, blocks: out_blocks, }
     }
   }
   current

@@ -1,11 +1,11 @@
 ///|
 fn fresh_var(id_gen : @ssa.IdGen) -> @ssa.Var {
-  { id: id_gen.next() }
+  { id: id_gen.next(), }
 }
 
 ///|
 fn fresh_label(id_gen : @ssa.IdGen, params : Array[@ssa.Var]) -> @ssa.Label {
-  { id: id_gen.next(), params }
+  { id: id_gen.next(), params, }
 }
 
 ///|
@@ -20,8 +20,8 @@ fn program_with(
 ) -> @structured.Program {
   {
     _id_gen: id_gen,
-    funcs: [{ index: 0, params: [], cells: [], vararg: false, body }],
-    main: { index: 0 },
+    funcs: [{ index: 0, params: [], cells: [], vararg: false, body, }],
+    main: { index: 0, },
   }
 }
 
@@ -60,7 +60,7 @@ test "from_structured lowers if merge params to local cell and parallel assign" 
       guard cell == then_cell && cell == else_cell && cell == return_cell else {
         panic()
       }
-      guard cell == { id: result.id } else { panic() }
+      guard cell == { id: result.id, } else { panic() }
     }
     _ => panic()
   }
@@ -74,7 +74,7 @@ test "from_structured maps captured merge params to cells inside closures" {
   let else_value = fresh_var(id_gen)
   let result = fresh_var(id_gen)
   let join = fresh_label(id_gen, [result])
-  let func_id : @ssa.FuncId = { index: 1 }
+  let func_id : @ssa.FuncId = { index: 1, }
   let program : @structured.Program = {
     _id_gen: id_gen,
     funcs: [
@@ -98,7 +98,7 @@ test "from_structured maps captured merge params to cells inside closures" {
         body: @structured.Return([@ssa.VarE(result)], None),
       },
     ],
-    main: { index: 0 },
+    main: { index: 0, },
   }
 
   match from_program(program) {
@@ -119,7 +119,7 @@ test "from_structured maps captured merge params to cells inside closures" {
       ),
     ] => {
       guard cell == return_cell else { panic() }
-      guard cell == { id: result.id } else { panic() }
+      guard cell == { id: result.id, } else { panic() }
     }
     _ => panic()
   }
@@ -166,7 +166,7 @@ test "from_structured lowers loop continue to tail assignment without redeclarin
       guard actual_next == next && assign_next == next else { panic() }
       guard cell == iter_cell && cell == next_cell else { panic() }
       guard init_cell == cell else { panic() }
-      guard cell == { id: iter.id } else { panic() }
+      guard cell == { id: iter.id, } else { panic() }
     }
     _ => panic()
   }
@@ -229,7 +229,7 @@ test "from_structured lowers loop leading exit guard to while condition" {
         cell == next_cell else {
         panic()
       }
-      guard cell == { id: iter.id } else { panic() }
+      guard cell == { id: iter.id, } else { panic() }
     }
     _ => panic()
   }
@@ -276,7 +276,7 @@ test "from_structured preserves trailing empty return in function body" {
 ///|
 test "from_structured preserves trailing empty return in closure body" {
   let id_gen = @ssa.IdGen::IdGen()
-  let func_id : @ssa.FuncId = { index: 1 }
+  let func_id : @ssa.FuncId = { index: 1, }
   let result = fresh_var(id_gen)
   let program : @structured.Program = {
     _id_gen: id_gen,
@@ -296,7 +296,7 @@ test "from_structured preserves trailing empty return in closure body" {
         body: @structured.Return([], None),
       },
     ],
-    main: { index: 0 },
+    main: { index: 0, },
   }
 
   match from_program(program) {

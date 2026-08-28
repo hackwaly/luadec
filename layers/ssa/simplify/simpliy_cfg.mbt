@@ -142,7 +142,7 @@ fn build_subst(
   args : Array[@ssa.Expr],
 ) -> Map[@ssa.Var, @ssa.Expr] {
   guard params.length() == args.length() else { panic() }
-  let subst : Map[@ssa.Var, @ssa.Expr] = {}
+  let subst : Map[@ssa.Var, @ssa.Expr] = Map([])
   for i in 0..<params.length() {
     subst[params[i]] = args[i]
   }
@@ -259,7 +259,7 @@ fn collect_predecessors(
   entry : @ssa.Label,
   blocks : Map[@ssa.Label, @ssa.Block],
 ) -> Map[@ssa.Label, Array[@ssa.Label]] {
-  let preds : Map[@ssa.Label, Array[@ssa.Label]] = {}
+  let preds : Map[@ssa.Label, Array[@ssa.Label]] = Map([])
   for label in reachable_labels(entry, blocks) {
     match blocks.get(label) {
       Some(block) =>
@@ -315,7 +315,7 @@ fn try_inline_cfg_once(
                 for stmt in target_block.stmts {
                   stmts.push(stmt)
                 }
-                blocks[pred_label] = { stmts, term: target_block.term }
+                blocks[pred_label] = { stmts, term: target_block.term, }
                 return true
               }
               (_, _) => ()
@@ -349,7 +349,7 @@ fn rewrite_all_terms(blocks : Map[@ssa.Label, @ssa.Block]) -> Unit {
 
 ///|
 fn simplify_cfg_func(func : @ssa.Func) -> (@ssa.Func, Bool) {
-  let blocks : Map[@ssa.Label, @ssa.Block] = {}
+  let blocks : Map[@ssa.Label, @ssa.Block] = Map([])
   for label, block in func.blocks {
     blocks[label] = block
   }
@@ -381,5 +381,5 @@ fn simplify_cfg_func(func : @ssa.Func) -> (@ssa.Func, Bool) {
       None => panic()
     }
   }
-  ({ ..func, blocks: out_blocks, entry }, changed_any)
+  ({ ..func, blocks: out_blocks, entry, }, changed_any)
 }

@@ -183,7 +183,7 @@ fn normalize_expr(expr : @expr.Expr) -> @expr.Expr {
     OrE(lhs, rhs) => @expr.OrE(normalize_expr(lhs), normalize_expr(rhs))
     CallE(call) => @expr.CallE(normalize_call(call))
     ClosureE(func) =>
-      @expr.ClosureE({ ..func, body: normalize_block(func.body) })
+      @expr.ClosureE({ ..func, body: normalize_block(func.body), })
   }
 }
 

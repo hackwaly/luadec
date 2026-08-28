@@ -3,12 +3,12 @@ using @immut/sorted_map {type SortedMap}
 
 ///|
 fn fresh_var(id_gen : @ssa.IdGen) -> @ssa.Var {
-  { id: id_gen.next() }
+  { id: id_gen.next(), }
 }
 
 ///|
 fn fresh_label(id_gen : @ssa.IdGen) -> @ssa.Label {
-  { id: id_gen.next(), params: [] }
+  { id: id_gen.next(), params: [], }
 }
 
 ///|
@@ -43,7 +43,7 @@ fn add_bridge_block(
     target
   } else {
     let bridge = fresh_label(id_gen)
-    out_blocks[bridge] = { stmts, term: @ssa.JumpT(target) }
+    out_blocks[bridge] = { stmts, term: @ssa.JumpT(target), }
     @ssa.Target(bridge, [])
   }
 }
@@ -57,12 +57,12 @@ fn materialize_block(
   match block.term {
     @ssa.JumpT(target) => {
       let (stmts, target) = materialize_target(id_gen, target)
-      { stmts: [..block.stmts, ..stmts], term: @ssa.JumpT(target) }
+      { stmts: [..block.stmts, ..stmts], term: @ssa.JumpT(target), }
     }
     @ssa.CondT(cond, true_target, false_target) => {
       let true_target = add_bridge_block(id_gen, out_blocks, true_target)
       let false_target = add_bridge_block(id_gen, out_blocks, false_target)
-      { stmts: block.stmts, term: @ssa.CondT(cond, true_target, false_target) }
+      { stmts: block.stmts, term: @ssa.CondT(cond, true_target, false_target), }
     }
     @ssa.ReturnT(_, _) => block
   }
@@ -70,7 +70,7 @@ fn materialize_block(
 
 ///|
 fn materialize_func(id_gen : @ssa.IdGen, func : @ssa.Func) -> @ssa.Func {
-  let out_blocks : Map[@ssa.Label, @ssa.Block] = {}
+  let out_blocks : Map[@ssa.Label, @ssa.Block] = Map([])
   for label, block in func.blocks {
     out_blocks[label] = materialize_block(id_gen, out_blocks, block)
   }
@@ -78,7 +78,7 @@ fn materialize_func(id_gen : @ssa.IdGen, func : @ssa.Func) -> @ssa.Func {
   for label, block in out_blocks {
     sorted_blocks = sorted_blocks.add(label, block)
   }
-  { ..func, blocks: sorted_blocks }
+  { ..func, blocks: sorted_blocks, }
 }
 
 ///|

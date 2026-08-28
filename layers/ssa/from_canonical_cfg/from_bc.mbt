@@ -2,9 +2,9 @@
 pub fn from_canonical_cfg(prog : @canonical_cfg.Program) -> Program {
   let id_gen = IdGen()
   let plans = plan_program(prog, id_gen)
-  let built_funcs : Map[Int, Func] = {}
-  let built : Map[@canonical_cfg.FuncId, Bool] = {}
-  let closure_bindings : Map[@canonical_cfg.FuncId, CaptureBinding] = {}
+  let built_funcs : Map[Int, Func] = Map([])
+  let built : Map[@canonical_cfg.FuncId, Bool] = Map([])
+  let closure_bindings : Map[@canonical_cfg.FuncId, CaptureBinding] = Map([])
 
   letrec build_func = fn(
     id : @canonical_cfg.FuncId,
@@ -32,7 +32,7 @@ pub fn from_canonical_cfg(prog : @canonical_cfg.Program) -> Program {
       }
     }
   }
-  build_func(prog.main, { vars: [], cells: [Cell::env()] })
+  build_func(prog.main, { vars: [], cells: [Cell::env()], })
   let funcs : Array[Func] = []
   for func in prog.funcs {
     match built_funcs.get(func.index) {
@@ -40,5 +40,5 @@ pub fn from_canonical_cfg(prog : @canonical_cfg.Program) -> Program {
       None => panic()
     }
   }
-  { _id_gen: id_gen, funcs, main: ssa_func_id(prog.main) }
+  { _id_gen: id_gen, funcs, main: ssa_func_id(prog.main), }
 }

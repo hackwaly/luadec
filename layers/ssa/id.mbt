@@ -8,7 +8,7 @@ pub struct IdGen {
 
 ///|
 pub fn IdGen::IdGen() -> IdGen {
-  { next: 0 }
+  { next: 0, }
 }
 
 ///|

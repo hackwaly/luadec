@@ -6,17 +6,17 @@ fn int_expr(value : Int) -> @expr.Expr {
 ///|
 test "render named program" {
   let id_gen = @ssa.IdGen::IdGen()
-  let value : @ssa.Var = { id: id_gen.next() }
-  let cell : @ssa.Cell = { id: id_gen.next() }
+  let value : @ssa.Var = { id: id_gen.next(), }
+  let cell : @ssa.Cell = { id: id_gen.next(), }
   let program : @expr.Program = [
     @expr.LocalS([cell], [@expr.VarE(value)]),
     @expr.ReturnS([@expr.CellE(cell)], None),
   ]
-  let vars : Map[@ssa.Var, String] = {}
+  let vars : Map[@ssa.Var, String] = Map([])
   vars[value] = "input"
-  let cells : Map[@ssa.Cell, String] = {}
+  let cells : Map[@ssa.Cell, String] = Map([])
   cells[cell] = "result"
-  let named : @expr.NamedProgram = { program, names: { vars, cells } }
+  let named : @expr.NamedProgram = { program, names: { vars, cells, }, }
 
   inspect(
     render_named(named),
@@ -30,7 +30,7 @@ test "render named program" {
 ///|
 test "render block with local assign if and while" {
   let id_gen = @ssa.IdGen::IdGen()
-  let cell : @ssa.Cell = { id: id_gen.next() }
+  let cell : @ssa.Cell = { id: id_gen.next(), }
   let program : @expr.Program = [
     @expr.LocalS([cell], []),
     @expr.ParallelAssignS([cell], [int_expr(0)]),
@@ -70,7 +70,7 @@ test "render block with local assign if and while" {
 ///|
 test "render closure call and global field syntax" {
   let id_gen = @ssa.IdGen::IdGen()
-  let param : @ssa.Var = { id: id_gen.next() }
+  let param : @ssa.Var = { id: id_gen.next(), }
   let callee = @expr.IndexE(
     @expr.CellE(@ssa.Cell::env()),
     @expr.ConstE(AsciiString("print", is_valid_identifier=true)),
@@ -99,9 +99,9 @@ test "render closure call and global field syntax" {
 ///|
 test "render generic for with multi tail" {
   let id_gen = @ssa.IdGen::IdGen()
-  let key : @ssa.Var = { id: id_gen.next() }
-  let value : @ssa.Var = { id: id_gen.next() }
-  let callee : @ssa.Var = { id: id_gen.next() }
+  let key : @ssa.Var = { id: id_gen.next(), }
+  let value : @ssa.Var = { id: id_gen.next(), }
+  let callee : @ssa.Var = { id: id_gen.next(), }
   let program : @expr.Program = [
     @expr.GenericForS(
       [key, value],
@@ -124,9 +124,9 @@ test "render generic for with multi tail" {
 ///|
 test "render named class method definition with self receiver" {
   let id_gen = @ssa.IdGen::IdGen()
-  let class_var : @ssa.Var = { id: id_gen.next() }
-  let self_var : @ssa.Var = { id: id_gen.next() }
-  let arg : @ssa.Var = { id: id_gen.next() }
+  let class_var : @ssa.Var = { id: id_gen.next(), }
+  let self_var : @ssa.Var = { id: id_gen.next(), }
+  let arg : @ssa.Var = { id: id_gen.next(), }
   let program : @expr.Program = [
     @expr.SetIndexS(
       @expr.VarE(class_var),
@@ -144,10 +144,10 @@ test "render named class method definition with self receiver" {
       }),
     ),
   ]
-  let vars : Map[@ssa.Var, String] = {}
+  let vars : Map[@ssa.Var, String] = Map([])
   vars[class_var] = "BattleBaseController"
   vars[self_var] = "self"
-  let named : @expr.NamedProgram = { program, names: { vars, cells: {} } }
+  let named : @expr.NamedProgram = { program, names: { vars, cells: {}, }, }
 
   inspect(
     render_named(named),
@@ -162,18 +162,18 @@ test "render named class method definition with self receiver" {
 ///|
 test "render keeps closure field assignment when receiver is not self" {
   let id_gen = @ssa.IdGen::IdGen()
-  let class_var : @ssa.Var = { id: id_gen.next() }
-  let receiver : @ssa.Var = { id: id_gen.next() }
+  let class_var : @ssa.Var = { id: id_gen.next(), }
+  let receiver : @ssa.Var = { id: id_gen.next(), }
   let program : @expr.Program = [
     @expr.SetIndexS(
       @expr.VarE(class_var),
       @expr.ConstE(AsciiString("init", is_valid_identifier=true)),
-      @expr.ClosureE({ params: [receiver], vararg: false, body: [] }),
+      @expr.ClosureE({ params: [receiver], vararg: false, body: [], }),
     ),
   ]
-  let vars : Map[@ssa.Var, String] = {}
+  let vars : Map[@ssa.Var, String] = Map([])
   vars[class_var] = "BattleBaseController"
-  let named : @expr.NamedProgram = { program, names: { vars, cells: {} } }
+  let named : @expr.NamedProgram = { program, names: { vars, cells: {}, }, }
 
   inspect(
     render_named(named),

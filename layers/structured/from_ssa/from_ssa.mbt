@@ -1,11 +1,11 @@
 ///|
 fn fresh_label(id_gen : @ssa.IdGen, params : Array[@ssa.Var]) -> @ssa.Label {
-  { id: id_gen.next(), params }
+  { id: id_gen.next(), params, }
 }
 
 ///|
 fn fresh_var(id_gen : @ssa.IdGen) -> @ssa.Var {
-  { id: id_gen.next() }
+  { id: id_gen.next(), }
 }
 
 ///|
@@ -41,7 +41,7 @@ fn build_param_subst(
   args : Array[@ssa.Expr],
 ) -> Map[@ssa.Var, @ssa.Expr] {
   guard params.length() == args.length() else { panic() }
-  let subst : Map[@ssa.Var, @ssa.Expr] = {}
+  let subst : Map[@ssa.Var, @ssa.Expr] = Map([])
   for i in 0..<params.length() {
     subst[params[i]] = args[i]
   }
@@ -54,7 +54,7 @@ priv struct SubstituteVars {
 }
 
 ///|
-impl @ssa.MapVisitor for SubstituteVars with visit_Expr_VarE(self, value~) {
+impl @ssa.MapVisitor for SubstituteVars with fn visit_Expr_VarE(self, value~) {
   match self.subst.get(value) {
     Some(expr) => expr
     None => VarE(value)
@@ -62,7 +62,7 @@ impl @ssa.MapVisitor for SubstituteVars with visit_Expr_VarE(self, value~) {
 }
 
 ///|
-impl @ssa.MapVisitor for SubstituteVars with visit_Expr_ClosureE(
+impl @ssa.MapVisitor for SubstituteVars with fn visit_Expr_ClosureE(
   self,
   func~,
   captures~,
@@ -77,7 +77,7 @@ impl @ssa.MapVisitor for SubstituteVars with visit_Expr_ClosureE(
 }
 
 ///|
-impl @structured.MapVisitor for SubstituteVars with visit_Expr(self, expr) {
+impl @structured.MapVisitor for SubstituteVars with fn visit_Expr(self, expr) {
   match expr {
     VarE(value) => self.visit_Expr_VarE(value~)
     ClosureE(func, captures) => self.visit_Expr_ClosureE(func~, captures~)
@@ -152,7 +152,7 @@ priv struct GotoArgCollector {
 }
 
 ///|
-impl @structured.IterVisitor for GotoArgCollector with visit_Region_Goto(
+impl @structured.IterVisitor for GotoArgCollector with fn visit_Region_Goto(
   self,
   target~,
 ) {
@@ -206,7 +206,10 @@ fn record_loop_shape_defs(
 }
 
 ///|
-impl @structured.IterVisitor for DefinedVarCollector with visit_Stmt(self, stmt) {
+impl @structured.IterVisitor for DefinedVarCollector with fn visit_Stmt(
+  self,
+  stmt,
+) {
   match stmt {
     BindS(value, expr) => {
       record_defined_var(self, value)
@@ -223,7 +226,7 @@ impl @structured.IterVisitor for DefinedVarCollector with visit_Stmt(self, stmt)
 }
 
 ///|
-impl @structured.IterVisitor for DefinedVarCollector with visit_Region_If(
+impl @structured.IterVisitor for DefinedVarCollector with fn visit_Region_If(
   self,
   cond~,
   then_~,
@@ -242,7 +245,7 @@ impl @structured.IterVisitor for DefinedVarCollector with visit_Region_If(
 }
 
 ///|
-impl @structured.IterVisitor for DefinedVarCollector with visit_Region_Loop(
+impl @structured.IterVisitor for DefinedVarCollector with fn visit_Region_Loop(
   self,
   header~,
   init_args~,
@@ -273,7 +276,7 @@ priv struct VarUse {
 }
 
 ///|
-impl @structured.IterVisitor for VarUse with visit_Expr(self, expr) {
+impl @structured.IterVisitor for VarUse with fn visit_Expr(self, expr) {
   match expr {
     VarE(value) if value == self.value => self.found[0] = true
     ClosureE(_, captures) =>
@@ -293,14 +296,14 @@ priv struct ExprVarUse {
 }
 
 ///|
-impl @ssa.IterVisitor for ExprVarUse with visit_Expr_VarE(self, value~) {
+impl @ssa.IterVisitor for ExprVarUse with fn visit_Expr_VarE(self, value~) {
   if self.values.get(value) is Some(true) {
     self.found[0] = true
   }
 }
 
 ///|
-impl @ssa.IterVisitor for ExprVarUse with visit_Expr_ClosureE(
+impl @ssa.IterVisitor for ExprVarUse with fn visit_Expr_ClosureE(
   self,
   func~,
   captures~,
@@ -316,7 +319,7 @@ impl @ssa.IterVisitor for ExprVarUse with visit_Expr_ClosureE(
 ///|
 fn expr_mentions_any(expr : @ssa.Expr, values : Map[@ssa.Var, Bool]) -> Bool {
   let found = [false]
-  let visitor : ExprVarUse = { values, found }
+  let visitor : ExprVarUse = { values, found, }
   visitor.visit_Expr(expr)
   found[0]
 }
@@ -324,7 +327,7 @@ fn expr_mentions_any(expr : @ssa.Expr, values : Map[@ssa.Var, Bool]) -> Bool {
 ///|
 fn region_mentions_var(region : Region, value : @ssa.Var) -> Bool {
   let found = [false]
-  let visitor : VarUse = { value, found }
+  let visitor : VarUse = { value, found, }
   visitor.visit_Region(region)
   found[0]
 }
@@ -334,7 +337,7 @@ fn collect_goto_args(
   regions : ArrayView[Region],
   label : @ssa.Label,
 ) -> (Array[Array[@ssa.Expr]], Bool) {
-  let collector : GotoArgCollector = { label, args: [], malformed: [false] }
+  let collector : GotoArgCollector = { label, args: [], malformed: [false], }
   for region in regions {
     collector.visit_Region(region)
   }
@@ -343,7 +346,7 @@ fn collect_goto_args(
 
 ///|
 fn collect_defined_vars(regions : ArrayView[Region]) -> Map[@ssa.Var, Bool] {
-  let collector : DefinedVarCollector = { defined: {} }
+  let collector : DefinedVarCollector = { defined: {}, }
   for region in regions {
     collector.visit_Region(region)
   }
@@ -352,7 +355,7 @@ fn collect_defined_vars(regions : ArrayView[Region]) -> Map[@ssa.Var, Bool] {
 
 ///|
 fn label_params_map(label : @ssa.Label) -> Map[@ssa.Var, Bool] {
-  let out : Map[@ssa.Var, Bool] = {}
+  let out : Map[@ssa.Var, Bool] = Map([])
   for param in label.params {
     out[param] = true
   }
@@ -364,7 +367,7 @@ fn matching_label_params_map(
   source : @ssa.Label,
   target : @ssa.Label,
 ) -> Map[@ssa.Var, Bool] {
-  let out : Map[@ssa.Var, Bool] = {}
+  let out : Map[@ssa.Var, Bool] = Map([])
   let len = if source.params.length() < target.params.length() {
     source.params.length()
   } else {
@@ -428,7 +431,7 @@ priv struct DropContParams {
 }
 
 ///|
-impl @structured.MapVisitor for DropContParams with visit_Region_Goto(
+impl @structured.MapVisitor for DropContParams with fn visit_Region_Goto(
   self,
   target~,
 ) {
@@ -461,7 +464,7 @@ fn shrink_cont_params(
   let (common, common_valid) = common_goto_args(args, old_label.params.length())
   let defined_inside = collect_defined_vars(sources)
   let label_params = label_params_map(old_label)
-  let subst : Map[@ssa.Var, @ssa.Expr] = {}
+  let subst : Map[@ssa.Var, @ssa.Expr] = Map([])
   let keep_indices : Array[Int] = []
   let kept_params : Array[@ssa.Var] = []
   for i in 0..<old_label.params.length() {
@@ -487,8 +490,8 @@ fn shrink_cont_params(
   guard kept_params.length() < old_label.params.length() else {
     return (sources, cont)
   }
-  let new_label = { ..old_label, params: kept_params }
-  let dropper : DropContParams = { old_label, new_label, keep_indices }
+  let new_label = { ..old_label, params: kept_params, }
+  let dropper : DropContParams = { old_label, new_label, keep_indices, }
   let new_sources = sources.map(fn(region) { dropper.visit_Region(region) })
   let new_cont_region = dropper.visit_Region(
     substitute_region(subst, cont_region),
@@ -622,4 +625,41 @@ pub fn from_ssa(program : @ssa.Program) -> Program {
     funcs: program.funcs.map(func => lower_func(program._id_gen, func)),
     main: program.main,
   }
+}
+
+///|
+extend SubstituteVars with @ssa.MapVisitor::{
+  visit_Expr_VarE,
+  visit_Expr_ClosureE,
+}
+
+///|
+extend SubstituteVars with @structured.MapVisitor::{visit_Region}
+
+///|
+extend GotoArgCollector with @structured.IterVisitor::{
+  visit_Target,
+  visit_Region,
+}
+
+///|
+extend DefinedVarCollector with @structured.IterVisitor::{
+  visit_Expr,
+  visit_Multi,
+  base,
+  visit_Region,
+  visit_LoopShape,
+}
+
+///|
+extend VarUse with @structured.IterVisitor::{base, visit_Region}
+
+///|
+extend ExprVarUse with @ssa.IterVisitor::{visit_Expr}
+
+///|
+extend DropContParams with @structured.MapVisitor::{
+  visit_Expr,
+  visit_Target,
+  visit_Region,
 }

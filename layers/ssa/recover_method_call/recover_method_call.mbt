@@ -4,7 +4,7 @@ priv struct AnalyzeUseCountVisitor {
 }
 
 ///|
-impl @ssa.IterVisitor for AnalyzeUseCountVisitor with visit_Expr_VarE(
+impl @ssa.IterVisitor for AnalyzeUseCountVisitor with fn visit_Expr_VarE(
   self,
   value~,
 ) {
@@ -13,7 +13,7 @@ impl @ssa.IterVisitor for AnalyzeUseCountVisitor with visit_Expr_VarE(
 
 ///|
 pub fn analyze_use_count(prog : @ssa.Program) -> Map[@ssa.Var, Int] {
-  let visitor : AnalyzeUseCountVisitor = { use_count: {} }
+  let visitor : AnalyzeUseCountVisitor = { use_count: {}, }
   visitor.visit_Program(prog)
   visitor.use_count
 }
@@ -31,7 +31,7 @@ priv struct MethodCallRewriter {
 }
 
 ///|
-impl @ssa.IterVisitor for MethodLikeCollector with visit_Stmt_BindS(
+impl @ssa.IterVisitor for MethodLikeCollector with fn visit_Stmt_BindS(
   self,
   value~,
   expr~,
@@ -47,7 +47,7 @@ impl @ssa.IterVisitor for MethodLikeCollector with visit_Stmt_BindS(
 }
 
 ///|
-impl @ssa.MapVisitor for MethodCallRewriter with visit_Call(self, call) {
+impl @ssa.MapVisitor for MethodCallRewriter with fn visit_Call(self, call) {
   match call {
     @ssa.NormalC(
       VarE(method_candidate),
@@ -66,7 +66,7 @@ impl @ssa.MapVisitor for MethodCallRewriter with visit_Call(self, call) {
 }
 
 ///|
-impl @ssa.MapVisitor for MethodCallRewriter with visit_Block(self, block) {
+impl @ssa.MapVisitor for MethodCallRewriter with fn visit_Block(self, block) {
   let block = self.base().visit_Block(block)
   let block2 = {
     ..block,
@@ -80,11 +80,11 @@ impl @ssa.MapVisitor for MethodCallRewriter with visit_Block(self, block) {
 ///|
 pub fn recover_method_call(program : @ssa.Program) -> @ssa.Program {
   let use_count = analyze_use_count(program)
-  let collector = MethodLikeCollector::{ use_count, method_like: {} }
+  let collector = MethodLikeCollector::{ use_count, method_like: {}, }
   collector.visit_Program(program)
   let rewriter = MethodCallRewriter::{
     method_like: collector.method_like,
-    to_drop: Set::new(),
+    to_drop: Set([]),
   }
   let program = rewriter.visit_Program(program)
   if rewriter.to_drop.is_empty() {
@@ -97,3 +97,12 @@ pub fn recover_method_call(program : @ssa.Program) -> @ssa.Program {
     cleanup.visit_Program(program)
   }
 }
+
+///|
+extend AnalyzeUseCountVisitor with @ssa.IterVisitor::{visit_Program}
+
+///|
+extend MethodLikeCollector with @ssa.IterVisitor::{visit_Expr, visit_Program}
+
+///|
+extend MethodCallRewriter with @ssa.MapVisitor::{base, visit_Program}

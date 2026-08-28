@@ -18,7 +18,7 @@ fn collect_if_reachable(
   if_label : @ssa.Label,
   start_label : @ssa.Label,
 ) -> SortedSet[@ssa.Label] {
-  let seen : Map[@ssa.Label, Bool] = {}
+  let seen : Map[@ssa.Label, Bool] = Map([])
   let mut out : SortedSet[@ssa.Label] = SortedSet::new()
   letrec collect = fn(label : @ssa.Label) -> Unit {
     if ctx.conts.contains(label) {
@@ -361,7 +361,7 @@ fn build_cond_region(
           build_if_region(cond, then_region, else_region, cont)
         }
       } else {
-        let branch_ctx = { ..ctx, conts: ctx.conts.add(join_label) }
+        let branch_ctx = { ..ctx, conts: ctx.conts.add(join_label), }
         let then_region = build_entry_region(branch_ctx, then_target)
         let else_region = build_entry_region(branch_ctx, else_target)
         let join_region = build_entry_region(

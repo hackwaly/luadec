@@ -3,12 +3,12 @@ using @immut/sorted_map {type SortedMap}
 
 ///|
 fn fresh_var(id_gen : @ssa.IdGen) -> @ssa.Var {
-  { id: id_gen.next() }
+  { id: id_gen.next(), }
 }
 
 ///|
 fn fresh_label(id_gen : @ssa.IdGen) -> @ssa.Label {
-  { id: id_gen.next(), params: [] }
+  { id: id_gen.next(), params: [], }
 }
 
 ///|
@@ -31,7 +31,7 @@ fn program_with(
         entry,
       },
     ],
-    main: { index: 0 },
+    main: { index: 0, },
   }
 }
 
@@ -172,7 +172,7 @@ test "recover folds or condition with negated rhs branch" {
     stmts: [@ssa.BindS(fresh_var(id_gen), @ssa.ConstE(Boolean(true)))],
     term: @ssa.JumpT(@ssa.Target(join_label, [])),
   })
-  blocks = blocks.add(join_label, { stmts: [], term: @ssa.ReturnT([], None) })
+  blocks = blocks.add(join_label, { stmts: [], term: @ssa.ReturnT([], None), })
 
   let recovered = recover_boolean(program_with(id_gen, blocks, entry))
   let func = recovered.funcs[0]
@@ -203,7 +203,7 @@ test "recover folds or condition with matching target args" {
   let arg = fresh_var(id_gen)
   let fallback = fresh_var(id_gen)
   let result = fresh_var(id_gen)
-  let join = { ..join_label, params: [result] }
+  let join = { ..join_label, params: [result], }
   let shared = @ssa.Target(join, [@ssa.VarE(arg)])
   let fallback_target = @ssa.Target(join, [@ssa.VarE(fallback)])
 
@@ -285,9 +285,9 @@ test "recover folds guard chain with equivalent empty return targets" {
     stmts: [],
     term: @ssa.ReturnT([@ssa.VarE(result)], None),
   })
-  blocks = blocks.add(return_a, { stmts: [], term: @ssa.ReturnT([], None) })
-  blocks = blocks.add(return_b, { stmts: [], term: @ssa.ReturnT([], None) })
-  blocks = blocks.add(return_c, { stmts: [], term: @ssa.ReturnT([], None) })
+  blocks = blocks.add(return_a, { stmts: [], term: @ssa.ReturnT([], None), })
+  blocks = blocks.add(return_b, { stmts: [], term: @ssa.ReturnT([], None), })
+  blocks = blocks.add(return_c, { stmts: [], term: @ssa.ReturnT([], None), })
 
   let recovered = recover_boolean(program_with(id_gen, blocks, entry))
   let func = recovered.funcs[0]
@@ -320,7 +320,7 @@ test "recover folds value branch into and expression" {
   let lhs = fresh_var(id_gen)
   let rhs = fresh_var(id_gen)
   let result = fresh_var(id_gen)
-  let join = { ..join, params: [result] }
+  let join = { ..join, params: [result], }
 
   let mut blocks : SortedMap[@ssa.Label, @ssa.Block] = SortedMap::new()
   blocks = blocks.add(entry, {
@@ -365,7 +365,7 @@ test "recover folds expression fallback branch into or expression" {
   let table = fresh_var(id_gen)
   let key = fresh_var(id_gen)
   let result = fresh_var(id_gen)
-  let join = { ..join, params: [result] }
+  let join = { ..join, params: [result], }
   let fallback = @ssa.IndexE(@ssa.VarE(table), @ssa.VarE(key))
 
   let mut blocks : SortedMap[@ssa.Label, @ssa.Block] = SortedMap::new()
@@ -416,7 +416,7 @@ test "recover folds truthy else value selected by negated condition into or expr
   let fallback = fresh_var(id_gen)
   let default = fresh_var(id_gen)
   let result = fresh_var(id_gen)
-  let join = { ..join, params: [result] }
+  let join = { ..join, params: [result], }
   let cond = @ssa.OrE(
     @ssa.BinaryE(Neq, @ssa.VarE(side), @ssa.VarE(teammate)),
     @ssa.UnaryE(Not, @ssa.VarE(fallback)),
@@ -479,7 +479,7 @@ test "recover folds boolean bridge values into condition" {
   let true_value = fresh_var(id_gen)
   let false_value = fresh_var(id_gen)
   let result = fresh_var(id_gen)
-  let join = { ..join, params: [result] }
+  let join = { ..join, params: [result], }
 
   let mut blocks : SortedMap[@ssa.Label, @ssa.Block] = SortedMap::new()
   blocks = blocks.add(entry, {

@@ -10,7 +10,7 @@ priv struct LoopTransferCollector {
 }
 
 ///|
-impl @structured.IterVisitor for LoopTransferCollector with visit_Region_Loop(
+impl @structured.IterVisitor for LoopTransferCollector with fn visit_Region_Loop(
   self,
   header~,
   init_args~,
@@ -55,7 +55,7 @@ fn target_equal(lhs : @ssa.Target, rhs : @ssa.Target) -> Bool {
 
 ///|
 fn fresh_label(id_gen : @ssa.IdGen) -> @ssa.Label {
-  { id: id_gen.next(), params: [] }
+  { id: id_gen.next(), params: [], }
 }
 
 ///|
@@ -212,7 +212,7 @@ fn hoist_if_tail(
 }
 
 ///|
-impl @structured.MapVisitor for Hoister with visit_Region_Branch(
+impl @structured.MapVisitor for Hoister with fn visit_Region_Branch(
   self,
   cond~,
   then_~,
@@ -227,7 +227,7 @@ impl @structured.MapVisitor for Hoister with visit_Region_Branch(
 }
 
 ///|
-impl @structured.MapVisitor for Hoister with visit_Region_If(
+impl @structured.MapVisitor for Hoister with fn visit_Region_If(
   self,
   cond~,
   then_~,
@@ -247,9 +247,20 @@ impl @structured.MapVisitor for Hoister with visit_Region_If(
 
 ///|
 pub fn hoist_common_transfers(program : Program) -> Program {
-  let loop_transfers : Map[@ssa.Label, Bool] = {}
-  let collector : LoopTransferCollector = { labels: loop_transfers }
+  let loop_transfers : Map[@ssa.Label, Bool] = Map([])
+  let collector : LoopTransferCollector = { labels: loop_transfers, }
   collector.visit_Program(program)
-  let hoister : Hoister = { id_gen: program._id_gen, loop_transfers }
+  let hoister : Hoister = { id_gen: program._id_gen, loop_transfers, }
   hoister.visit_Program(program)
+}
+
+///|
+extend LoopTransferCollector with @structured.IterVisitor::{base, visit_Program}
+
+///|
+extend Hoister with @structured.MapVisitor::{
+  visit_Expr,
+  visit_Region,
+  visit_Label,
+  visit_Program,
 }

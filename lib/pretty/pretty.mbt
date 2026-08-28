@@ -69,7 +69,7 @@ pub fn concat(left : Doc, right : Doc) -> Doc {
 }
 
 ///|
-pub impl Add for Doc with add(self, other) {
+pub impl Add for Doc with fn add(self, other) {
   concat(self, other)
 }
 
@@ -220,7 +220,7 @@ fn render_docs(
 
 ///|
 pub fn print(doc : Doc, width? : Int = 80) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   let _ = render_docs(buf, width, 0, Cons(0, doc, NilL))
   buf.to_string()
 }

@@ -5,7 +5,7 @@ priv struct CellRead {
 }
 
 ///|
-impl @expr.IterVisitor for CellRead with visit_Expr_CellE(self, cell~) {
+impl @expr.IterVisitor for CellRead with fn visit_Expr_CellE(self, cell~) {
   if cell == self.cell {
     self.found[0] = true
   }
@@ -14,7 +14,7 @@ impl @expr.IterVisitor for CellRead with visit_Expr_CellE(self, cell~) {
 ///|
 fn expr_reads_cell(expr : @expr.Expr, cell : @ssa.Cell) -> Bool {
   let found = [false]
-  let visitor : CellRead = { cell, found }
+  let visitor : CellRead = { cell, found, }
   visitor.visit_Expr(expr)
   found[0]
 }
@@ -62,12 +62,18 @@ priv struct Merger {
 }
 
 ///|
-impl @expr.MapVisitor for Merger with visit_Block(self, body) {
+impl @expr.MapVisitor for Merger with fn visit_Block(self, body) {
   merge_block(self.base().visit_Block(body))
 }
 
 ///|
 pub fn merge_local_assign(program : @expr.Program) -> @expr.Program {
-  let merger : Merger = { _unit: () }
+  let merger : Merger = { _unit: (), }
   merger.visit_Program(program)
 }
+
+///|
+extend CellRead with @expr.IterVisitor::{visit_Expr}
+
+///|
+extend Merger with @expr.MapVisitor::{base, visit_Program}

@@ -4,12 +4,12 @@ priv struct MentionVisitor {
 }
 
 ///|
-impl @ssa.IterVisitor for MentionVisitor with visit_Expr_VarE(self, value~) {
+impl @ssa.IterVisitor for MentionVisitor with fn visit_Expr_VarE(self, value~) {
   self.mentioned[value] = true
 }
 
 ///|
-impl @ssa.IterVisitor for MentionVisitor with visit_Expr_ClosureE(
+impl @ssa.IterVisitor for MentionVisitor with fn visit_Expr_ClosureE(
   self,
   func~,
   captures~,
@@ -22,14 +22,17 @@ impl @ssa.IterVisitor for MentionVisitor with visit_Expr_ClosureE(
 
 ///|
 pub fn mentioned_in_expr(expr : @ssa.Expr) -> Map[@ssa.Var, Bool] {
-  let visitor : MentionVisitor = { mentioned: {} }
+  let visitor : MentionVisitor = { mentioned: {}, }
   visitor.visit_Expr(expr)
   visitor.mentioned
 }
 
 ///|
 pub fn mentioned_in_target(target : @ssa.Target) -> Map[@ssa.Var, Bool] {
-  let visitor : MentionVisitor = { mentioned: {} }
+  let visitor : MentionVisitor = { mentioned: {}, }
   visitor.visit_Target(target)
   visitor.mentioned
 }
+
+///|
+extend MentionVisitor with @ssa.IterVisitor::{visit_Expr, visit_Target}

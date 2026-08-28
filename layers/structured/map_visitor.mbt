@@ -1,20 +1,20 @@
 ///|
 pub(open) trait MapVisitor {
-  base(Self) -> MapVisitorBase[Self] = _
-  visit_Program(Self, Program) -> Program = _
-  visit_Func(Self, Func) -> Func = _
-  visit_Region(Self, Region) -> Region = _
-  visit_Region_Linear(Self, stmts~ : Array[Stmt], next~ : Region) -> Region = _
-  visit_Region_Return(Self, values~ : Array[Expr], multi~ : Multi?) -> Region = _
-  visit_Region_Branch(Self, cond~ : Expr, then_~ : Region, else_~ : Region) -> Region = _
-  visit_Region_If(
+  fn base(Self) -> MapVisitorBase[Self] = _
+  fn visit_Program(Self, Program) -> Program = _
+  fn visit_Func(Self, Func) -> Func = _
+  fn visit_Region(Self, Region) -> Region = _
+  fn visit_Region_Linear(Self, stmts~ : Array[Stmt], next~ : Region) -> Region = _
+  fn visit_Region_Return(Self, values~ : Array[Expr], multi~ : Multi?) -> Region = _
+  fn visit_Region_Branch(Self, cond~ : Expr, then_~ : Region, else_~ : Region) -> Region = _
+  fn visit_Region_If(
     Self,
     cond~ : Expr,
     then_~ : Region,
     else_~ : Region?,
     cont~ : (Label, Region),
   ) -> Region = _
-  visit_Region_Loop(
+  fn visit_Region_Loop(
     Self,
     header~ : Label,
     init_args~ : Array[Expr],
@@ -22,75 +22,75 @@ pub(open) trait MapVisitor {
     body~ : Region,
     exit_region~ : (Label, Region)?,
   ) -> Region = _
-  visit_Region_Goto(Self, target~ : Target) -> Region = _
-  visit_LoopShape(Self, LoopShape) -> LoopShape = _
-  visit_LoopShape_UnknownLS(Self) -> LoopShape = _
-  visit_LoopShape_NumericForLS(
+  fn visit_Region_Goto(Self, target~ : Target) -> Region = _
+  fn visit_LoopShape(Self, LoopShape) -> LoopShape = _
+  fn visit_LoopShape_UnknownLS(Self) -> LoopShape = _
+  fn visit_LoopShape_NumericForLS(
     Self,
     value~ : Var,
     init~ : Expr,
     limit~ : Expr,
     step~ : Expr,
   ) -> LoopShape = _
-  visit_LoopShape_GenericForLS(
+  fn visit_LoopShape_GenericForLS(
     Self,
     vars~ : Array[Var],
     exprs~ : Array[Expr],
     multi~ : Multi?,
   ) -> LoopShape = _
-  visit_Stmt(Self, Stmt) -> Stmt = _
-  visit_Expr(Self, Expr) -> Expr = _
-  visit_Target(Self, Target) -> Target = _
-  visit_Multi(Self, Multi) -> Multi = _
-  visit_Call(Self, @ssa.Call) -> @ssa.Call = _
-  visit_TableInit(Self, @ssa.TableInit) -> @ssa.TableInit = _
-  visit_Var(Self, Var) -> Var = _
-  visit_Cell(Self, Cell) -> Cell = _
-  visit_Label(Self, Label) -> Label = _
+  fn visit_Stmt(Self, Stmt) -> Stmt = _
+  fn visit_Expr(Self, Expr) -> Expr = _
+  fn visit_Target(Self, Target) -> Target = _
+  fn visit_Multi(Self, Multi) -> Multi = _
+  fn visit_Call(Self, @ssa.Call) -> @ssa.Call = _
+  fn visit_TableInit(Self, @ssa.TableInit) -> @ssa.TableInit = _
+  fn visit_Var(Self, Var) -> Var = _
+  fn visit_Cell(Self, Cell) -> Cell = _
+  fn visit_Label(Self, Label) -> Label = _
 }
 
 ///|
-impl MapVisitor with base(self) -> MapVisitorBase[Self] {
+impl MapVisitor with fn base(self) -> MapVisitorBase[Self] {
   MapVisitorBase::MapVisitorBase(self)
 }
 
 ///|
-impl MapVisitor with visit_Program(env, program) {
+impl MapVisitor with fn visit_Program(env, program) {
   MapVisitorBase::visit_Program(env, program)
 }
 
 ///|
-impl MapVisitor with visit_Func(env, func) {
+impl MapVisitor with fn visit_Func(env, func) {
   MapVisitorBase::visit_Func(env, func)
 }
 
 ///|
-impl MapVisitor with visit_Region(env, region) {
+impl MapVisitor with fn visit_Region(env, region) {
   MapVisitorBase::visit_Region(env, region)
 }
 
 ///|
-impl MapVisitor with visit_Region_Linear(env, stmts~, next~) {
+impl MapVisitor with fn visit_Region_Linear(env, stmts~, next~) {
   MapVisitorBase::visit_Region_Linear(env, stmts~, next~)
 }
 
 ///|
-impl MapVisitor with visit_Region_Return(env, values~, multi~) {
+impl MapVisitor with fn visit_Region_Return(env, values~, multi~) {
   MapVisitorBase::visit_Region_Return(env, values~, multi~)
 }
 
 ///|
-impl MapVisitor with visit_Region_Branch(env, cond~, then_~, else_~) {
+impl MapVisitor with fn visit_Region_Branch(env, cond~, then_~, else_~) {
   MapVisitorBase::visit_Region_Branch(env, cond~, then_~, else_~)
 }
 
 ///|
-impl MapVisitor with visit_Region_If(env, cond~, then_~, else_~, cont~) {
+impl MapVisitor with fn visit_Region_If(env, cond~, then_~, else_~, cont~) {
   MapVisitorBase::visit_Region_If(env, cond~, then_~, else_~, cont~)
 }
 
 ///|
-impl MapVisitor with visit_Region_Loop(
+impl MapVisitor with fn visit_Region_Loop(
   env,
   header~,
   init_args~,
@@ -109,22 +109,22 @@ impl MapVisitor with visit_Region_Loop(
 }
 
 ///|
-impl MapVisitor with visit_Region_Goto(env, target~) {
+impl MapVisitor with fn visit_Region_Goto(env, target~) {
   MapVisitorBase::visit_Region_Goto(env, target~)
 }
 
 ///|
-impl MapVisitor with visit_LoopShape(env, shape) {
+impl MapVisitor with fn visit_LoopShape(env, shape) {
   MapVisitorBase::visit_LoopShape(env, shape)
 }
 
 ///|
-impl MapVisitor with visit_LoopShape_UnknownLS(env) {
+impl MapVisitor with fn visit_LoopShape_UnknownLS(env) {
   MapVisitorBase::visit_LoopShape_UnknownLS(env)
 }
 
 ///|
-impl MapVisitor with visit_LoopShape_NumericForLS(
+impl MapVisitor with fn visit_LoopShape_NumericForLS(
   env,
   value~,
   init~,
@@ -141,52 +141,52 @@ impl MapVisitor with visit_LoopShape_NumericForLS(
 }
 
 ///|
-impl MapVisitor with visit_LoopShape_GenericForLS(env, vars~, exprs~, multi~) {
+impl MapVisitor with fn visit_LoopShape_GenericForLS(env, vars~, exprs~, multi~) {
   MapVisitorBase::visit_LoopShape_GenericForLS(env, vars~, exprs~, multi~)
 }
 
 ///|
-impl MapVisitor with visit_Stmt(env, stmt) {
+impl MapVisitor with fn visit_Stmt(env, stmt) {
   MapVisitorBase::visit_Stmt(env, stmt)
 }
 
 ///|
-impl MapVisitor with visit_Expr(env, expr) {
+impl MapVisitor with fn visit_Expr(env, expr) {
   MapVisitorBase::visit_Expr(env, expr)
 }
 
 ///|
-impl MapVisitor with visit_Target(env, target) {
+impl MapVisitor with fn visit_Target(env, target) {
   MapVisitorBase::visit_Target(env, target)
 }
 
 ///|
-impl MapVisitor with visit_Multi(env, multi) {
+impl MapVisitor with fn visit_Multi(env, multi) {
   MapVisitorBase::visit_Multi(env, multi)
 }
 
 ///|
-impl MapVisitor with visit_Call(env, call) {
+impl MapVisitor with fn visit_Call(env, call) {
   MapVisitorBase::visit_Call(env, call)
 }
 
 ///|
-impl MapVisitor with visit_TableInit(env, init) {
+impl MapVisitor with fn visit_TableInit(env, init) {
   MapVisitorBase::visit_TableInit(env, init)
 }
 
 ///|
-impl MapVisitor with visit_Var(env, value) {
+impl MapVisitor with fn visit_Var(env, value) {
   MapVisitorBase::visit_Var(env, value)
 }
 
 ///|
-impl MapVisitor with visit_Cell(env, cell) {
+impl MapVisitor with fn visit_Cell(env, cell) {
   MapVisitorBase::visit_Cell(env, cell)
 }
 
 ///|
-impl MapVisitor with visit_Label(env, label) {
+impl MapVisitor with fn visit_Label(env, label) {
   MapVisitorBase::visit_Label(env, label)
 }
 
@@ -202,7 +202,7 @@ fn[T] ssa_map_base(env : T) -> @ssa.MapVisitorBase[SsaMapAdapter[T]] {
 }
 
 ///|
-impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_Stmt(
+impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with fn visit_Stmt(
   env,
   stmt,
 ) {
@@ -210,7 +210,7 @@ impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_Stmt(
 }
 
 ///|
-impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_Expr(
+impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with fn visit_Expr(
   env,
   expr,
 ) {
@@ -218,7 +218,7 @@ impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_Expr(
 }
 
 ///|
-impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_Target(
+impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with fn visit_Target(
   env,
   target,
 ) {
@@ -226,7 +226,7 @@ impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_Target(
 }
 
 ///|
-impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_Multi(
+impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with fn visit_Multi(
   env,
   multi,
 ) {
@@ -234,7 +234,7 @@ impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_Multi(
 }
 
 ///|
-impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_Call(
+impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with fn visit_Call(
   env,
   call,
 ) {
@@ -242,7 +242,7 @@ impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_Call(
 }
 
 ///|
-impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_TableInit(
+impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with fn visit_TableInit(
   env,
   init,
 ) {
@@ -250,7 +250,7 @@ impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_TableInit(
 }
 
 ///|
-impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_Var(
+impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with fn visit_Var(
   env,
   value,
 ) {
@@ -258,7 +258,7 @@ impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_Var(
 }
 
 ///|
-impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_Cell(
+impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with fn visit_Cell(
   env,
   cell,
 ) {
@@ -266,7 +266,7 @@ impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_Cell(
 }
 
 ///|
-impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_Label(
+impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with fn visit_Label(
   env,
   label,
 ) {
@@ -274,15 +274,15 @@ impl[T : MapVisitor] @ssa.MapVisitor for SsaMapAdapter[T] with visit_Label(
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Program(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Program(
   env,
   program,
 ) {
-  { ..program, funcs: program.funcs.map(fn(func) { env.0.visit_Func(func) }) }
+  { ..program, funcs: program.funcs.map(fn(func) { env.0.visit_Func(func) }), }
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Func(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Func(
   env,
   func,
 ) {
@@ -296,7 +296,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Func(
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Region(
   env,
   region,
 ) {
@@ -325,7 +325,7 @@ fn[T : MapVisitor] map_visit_cont(
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region_Linear(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Region_Linear(
   env,
   stmts~,
   next~,
@@ -337,7 +337,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region_Line
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region_Return(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Region_Return(
   env,
   values~,
   multi~,
@@ -349,7 +349,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region_Retu
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region_Branch(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Region_Branch(
   env,
   cond~,
   then_~,
@@ -363,7 +363,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region_Bran
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region_If(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Region_If(
   env,
   cond~,
   then_~,
@@ -382,7 +382,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region_If(
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region_Loop(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Region_Loop(
   env,
   header~,
   init_args~,
@@ -400,7 +400,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region_Loop
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region_Goto(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Region_Goto(
   env,
   target~,
 ) {
@@ -408,7 +408,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Region_Goto
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_LoopShape(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_LoopShape(
   env,
   shape,
 ) {
@@ -422,14 +422,14 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_LoopShape(
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_LoopShape_UnknownLS(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_LoopShape_UnknownLS(
   _env,
 ) {
   UnknownLS
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_LoopShape_NumericForLS(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_LoopShape_NumericForLS(
   env,
   value~,
   init~,
@@ -445,7 +445,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_LoopShape_N
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_LoopShape_GenericForLS(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_LoopShape_GenericForLS(
   env,
   vars~,
   exprs~,
@@ -459,7 +459,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_LoopShape_G
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Stmt(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Stmt(
   env,
   stmt,
 ) {
@@ -467,7 +467,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Stmt(
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Expr(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Expr(
   env,
   expr,
 ) {
@@ -475,7 +475,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Expr(
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Target(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Target(
   env,
   target,
 ) {
@@ -483,7 +483,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Target(
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Multi(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Multi(
   env,
   multi,
 ) {
@@ -491,7 +491,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Multi(
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Call(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Call(
   env,
   call,
 ) {
@@ -499,7 +499,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Call(
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_TableInit(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_TableInit(
   env,
   init,
 ) {
@@ -507,7 +507,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_TableInit(
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Var(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Var(
   _env,
   value,
 ) {
@@ -515,7 +515,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Var(
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Cell(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Cell(
   _env,
   cell,
 ) {
@@ -523,7 +523,7 @@ pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Cell(
 }
 
 ///|
-pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with visit_Label(
+pub impl[T : MapVisitor] MapVisitor for MapVisitorBase[T] with fn visit_Label(
   _env,
   label,
 ) {
